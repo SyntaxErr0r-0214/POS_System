@@ -48,6 +48,7 @@ func main() {
 	// 库存管理相关接口 (新增)
 	http.HandleFunc("/api/inventory/list", pHandler.ListInventory) // <--- 【新增】列表
 	http.HandleFunc("/api/inventory/save", pHandler.AddOrUpdate)   // <--- 【新增】保存
+	http.HandleFunc("/api/product/search", pHandler.SearchProduct)
 
 	log.Println("Start: http://localhost:8080")
 	log.Fatal(http.ListenAndServe("0.0.0.0:8080", nil))

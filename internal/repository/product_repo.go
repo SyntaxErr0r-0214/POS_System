@@ -69,3 +69,30 @@ func (r *ProductRepo) Update(p model.Product) error {
 		p.Name, p.Price, p.CostPrice, p.Stock, p.ID)
 	return err
 }
+
+// Search 模糊搜索 (支持名称或条码)
+func (r *ProductRepo) Search(query string) ([]model.Product, error) {
+	// 限制返回 10 条，防止数据太多刷屏
+	sqlStr := `
+		SELECT id, barcode, name, price, cost_price, stock 
+		FROM products 
+		WHERE name LIKE ? OR barcode LIKE ? 
+		ORDER BY id DESC LIMIT 10`
+
+	// %query% 表示包含该字符
+	param := "%" + query + "%"
+
+	rows, err := r.DB.Query(sqlStr, param, param)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []model.Product
+	for rows.Next() {
+		var p model.Product
+		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Price, &p.CostPrice, &p.Stock)
+		list = append(list, p)
+	}
+	return list, nil
+}

@@ -23,14 +23,16 @@ type OrderItem struct {
 	QtyPicked   int     `json:"qty_picked"`
 }
 
-// HTTP 请求体结构也放在这里
+// CheckoutRequest 结算请求
 type CheckoutRequest struct {
 	Items []struct {
-		ID  int `json:"id"`
-		Qty int `json:"qty"`
+		ID    int     `json:"id"`
+		Qty   int     `json:"qty"`
+		Price float64 `json:"price"` // <--- 关键：必须要有这个字段，不然 Service 层会报错
 	} `json:"items"`
 }
 
+// BookingRequest 预订请求
 type BookingRequest struct {
 	CustomerName string `json:"customer_name"`
 	Phone        string `json:"phone"`
@@ -40,6 +42,7 @@ type BookingRequest struct {
 	} `json:"items"`
 }
 
+// PickupRequest 提货请求
 type PickupRequest struct {
 	OrderID int `json:"order_id"`
 	Items   []struct {

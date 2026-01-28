@@ -59,3 +59,21 @@ func (h *ProductHandler) AddOrUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Write([]byte("操作成功"))
 }
+
+// SearchProduct 联想搜索 API
+func (h *ProductHandler) SearchProduct(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query().Get("q")
+	if q == "" {
+		w.Write([]byte("[]"))
+		return
+	}
+
+	list, err := h.Repo.Search(q)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(list)
+}
