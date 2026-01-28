@@ -13,22 +13,60 @@ func Init() *sql.DB {
 		log.Fatal(err)
 	}
 
-	db.Exec("PRAGMA foreign_keys = ON;")
+	// 开启外键支持
+	_, err = db.Exec("PRAGMA foreign_keys = ON;")
+	if err != nil {
+		log.Fatal("无法开启外键支持:", err)
+	}
 
-	// 简单的建表逻辑，和之前一样
+	// --- 核心修改在这里 ---
+	// 我们在 products 表里增加了一个 cost_price (进价) 字段
 	sqlStmt := `
-	CREATE TABLE IF NOT EXISTS products (id INTEGER PRIMARY KEY AUTOINCREMENT, barcode TEXT UNIQUE, name TEXT, price REAL, stock INTEGER DEFAULT 0);
-	CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_name TEXT, phone TEXT, status TEXT DEFAULT 'Pending', created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
-	CREATE TABLE IF NOT EXISTS order_items (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER, product_id INTEGER, product_name TEXT, price REAL, qty_ordered INTEGER, qty_picked INTEGER DEFAULT 0, FOREIGN KEY(order_id) REFERENCES orders(id), FOREIGN KEY(product_id) REFERENCES products(id));
+	CREATE TABLE IF NOT EXISTS products (
+		id INTEGER PRIMARY KEY AUTOINCREMENT, 
+		barcode TEXT UNIQUE, 
+		name TEXT, 
+		price REAL, 
+		cost_price REAL DEFAULT 0, -- <--- 新增了这一列
+		stock INTEGER DEFAULT 0
+	);
+	
+	CREATE TABLE IF NOT EXISTS orders (
+		id INTEGER PRIMARY KEY AUTOINCREMENT, 
+		customer_name TEXT, 
+		phone TEXT, 
+		status TEXT DEFAULT 'Pending', 
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
+	
+	CREATE TABLE IF NOT EXISTS order_items (
+		id INTEGER PRIMARY KEY AUTOINCREMENT, 
+		order_id INTEGER, 
+		product_id INTEGER, 
+		product_name TEXT, 
+		price REAL, 
+		qty_ordered INTEGER, 
+		qty_picked INTEGER DEFAULT 0, 
+		FOREIGN KEY(order_id) REFERENCES orders(id), 
+		FOREIGN KEY(product_id) REFERENCES products(id)
+	);
 	`
-	db.Exec(sqlStmt)
+	_, err = db.Exec(sqlStmt)
+	if err != nil {
+		log.Fatal("创建表结构失败: ", err)
+	}
 
-	// 初始化测试数据
+	// 初始化测试数据 (也顺便更新了，加上了进价)
 	var count int
 	db.QueryRow("SELECT COUNT(*) FROM products").Scan(&count)
 	if count == 0 {
-		db.Exec("INSERT INTO products (barcode, name, price, stock) VALUES (?, ?, ?, ?)", "123456", "可口可乐", 3.00, 100)
-		db.Exec("INSERT INTO products (barcode, name, price, stock) VALUES (?, ?, ?, ?)", "888888", "卫龙", 5.50, 50)
+		// 注意：这里的 SQL 语句变了，多了 cost_price
+		// 参数顺序: 条码, 名称, 售价, 进价, 库存
+		db.Exec("INSERT INTO products (barcode, name, price, cost_price, stock) VALUES (?, ?, ?, ?, ?)",
+			"123456", "可口可乐", 3.00, 2.50, 100)
+
+		db.Exec("INSERT INTO products (barcode, name, price, cost_price, stock) VALUES (?, ?, ?, ?, ?)",
+			"888888", "卫龙", 5.50, 3.00, 50)
 	}
 	return db
 }

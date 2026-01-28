@@ -38,3 +38,34 @@ func (r *ProductRepo) DecreaseStock(tx *sql.Tx, productID int, qty int) error {
 	_, err := tx.Exec("UPDATE products SET stock = stock - ? WHERE id = ?", qty, productID)
 	return err
 }
+
+// GetAll 获取所有商品 (用于库存列表)
+func (r *ProductRepo) GetAll() ([]model.Product, error) {
+	rows, err := r.DB.Query("SELECT id, barcode, name, price, cost_price, stock FROM products ORDER BY id DESC")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var products []model.Product
+	for rows.Next() {
+		var p model.Product
+		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Price, &p.CostPrice, &p.Stock)
+		products = append(products, p)
+	}
+	return products, nil
+}
+
+// Create 新增商品
+func (r *ProductRepo) Create(p model.Product) error {
+	_, err := r.DB.Exec("INSERT INTO products (barcode, name, price, cost_price, stock) VALUES (?, ?, ?, ?, ?)",
+		p.Barcode, p.Name, p.Price, p.CostPrice, p.Stock)
+	return err
+}
+
+// Update 更新商品信息
+func (r *ProductRepo) Update(p model.Product) error {
+	_, err := r.DB.Exec("UPDATE products SET name=?, price=?, cost_price=?, stock=? WHERE id=?",
+		p.Name, p.Price, p.CostPrice, p.Stock, p.ID)
+	return err
+}
