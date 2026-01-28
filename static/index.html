@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>单机收银系统 v2.0</title>
+    <style>
+        body { margin: 0; padding: 0; font-family: "Microsoft YaHei", sans-serif; background-color: #f0f2f5; height: 100vh; display: flex; flex-direction: column; }
+
+        /* 顶部导航 */
+        .header { background-color: #333; color: white; padding: 0 20px; height: 60px; display: flex; justify-content: space-between; align-items: center; }
+        .nav-tabs { display: flex; gap: 10px; height: 100%; }
+        .nav-item { padding: 0 20px; height: 100%; display: flex; align-items: center; cursor: pointer; color: #ccc; border-bottom: 4px solid transparent; transition: all 0.2s; }
+        .nav-item:hover { color: white; background: #444; }
+        .nav-item.active { color: white; border-bottom-color: #007bff; background: #444; font-weight: bold; }
+
+        /* 页面容器 */
+        .page { display: none; flex: 1; padding: 10px; height: calc(100vh - 80px); }
+        .page.active { display: flex; }
+
+        /* --- 收银台样式 (保持之前风格) --- */
+        .main-container { width: 100%; display: flex; gap: 10px; }
+        .cart-section { flex: 2; background: white; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .cart-items { flex: 1; overflow-y: auto; padding: 0; margin: 0; list-style: none; }
+        .cart-item { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 50px; padding: 15px; border-bottom: 1px solid #f8f8f8; align-items: center; }
+        .action-section { flex: 1; background: white; border-radius: 8px; padding: 20px; display: flex; flex-direction: column; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .scan-box input { width: 100%; padding: 15px; font-size: 18px; border: 2px solid #007bff; border-radius: 4px; box-sizing: border-box; }
+        .total-price { font-size: 36px; color: #f56c6c; font-weight: bold; text-align: right; margin: 20px 0; }
+        .btn { border: none; padding: 15px; font-size: 18px; border-radius: 4px; cursor: pointer; color: white; margin-bottom: 10px; width: 100%; }
+        .btn-print { background: #28a745; }
+        .btn-order { background: #ffc107; color: #333; }
+        .btn-clear { background: #dc3545; }
+
+        /* --- 订单管理样式 (新) --- */
+        .order-layout { display: flex; width: 100%; gap: 10px; }
+        .order-list-panel { flex: 1; background: white; border-radius: 8px; display: flex; flex-direction: column; padding: 15px; overflow: hidden;}
+        .order-detail-panel { flex: 2; background: white; border-radius: 8px; padding: 20px; display: flex; flex-direction: column; border-left: 5px solid #007bff;}
+
+        .search-bar { display: flex; gap: 10px; margin-bottom: 15px; }
+        .search-bar input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+
+        .order-card { padding: 15px; border: 1px solid #eee; border-radius: 4px; margin-bottom: 10px; cursor: pointer; transition: 0.2s; }
+        .order-card:hover { background: #f9f9f9; border-color: #007bff; }
+        .order-card.selected { background: #e6f7ff; border-color: #1890ff; }
+
+        .pickup-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px dashed #eee; }
+        .pickup-input { width: 60px; padding: 5px; text-align: center; border: 2px solid #ddd; border-radius: 4px; font-size: 16px; }
+        .pickup-input:focus { border-color: #007bff; outline: none; }
+
+        /* 模态框样式 */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+        .modal { background: white; padding: 20px; border-radius: 8px; width: 300px; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div style="font-size: 20px; font-weight: bold;">🏪 收银系统 POS</div>
+    <div class="nav-tabs">
+        <div class="nav-item active" onclick="switchTab('cashier')">收银台</div>
+        <div class="nav-item" onclick="switchTab('orders')">订单管理</div>
+    </div>
+</div>
+
+<div id="page-cashier" class="page active">
+    <div class="main-container">
+        <div class="cart-section">
+            <div style="padding:15px; border-bottom:1px solid #eee; font-weight:bold; display:grid; grid-template-columns:2fr 1fr 1fr 1fr 50px;">
+                <span>商品</span><span>单价</span><span>数量</span><span>小计</span><span></span>
+            </div>
+            <div id="cart-list" class="cart-items"></div>
+        </div>
+        <div class="action-section">
+            <div class="scan-box">
+                <input type="text" id="barcode-input" placeholder="请扫码..." autocomplete="off">
+            </div>
+            <div class="total-price">¥ <span id="total-val">0.00</span></div>
+            <button class="btn btn-print" onclick="checkout()">🚀 立即结算</button>
+            <button class="btn btn-order" onclick="openBookModal()">📦 转为预订</button>
+            <button class="btn btn-clear" onclick="clearCart()">🗑️ 清空</button>
+        </div>
+    </div>
+</div>
+
+<div id="page-orders" class="page">
+    <div class="order-layout">
+        <div class="order-list-panel">
+            <div class="search-bar">
+                <input type="text" id="search-input" placeholder="输入姓名或电话..." onkeypress="if(event.key==='Enter') searchOrders()">
+                <button class="btn" style="width:auto; margin:0; padding:10px 20px; background:#007bff;" onclick="searchOrders()">🔍</button>
+            </div>
+            <div id="order-list" style="overflow-y:auto; flex:1;">
+                <div style="color:#999; text-align:center; margin-top:20px;">请输入关键词搜索</div>
+            </div>
+        </div>
+        <div class="order-detail-panel">
+            <div id="order-detail-content" style="display:none; height:100%; flex-direction:column;">
+                <h2 style="margin-top:0;">👤 <span id="detail-name">张三</span> <span style="font-size:14px; color:#999;" id="detail-phone"></span></h2>
+                <div style="flex:1; overflow-y:auto; margin-bottom:20px;" id="pickup-list">
+                </div>
+                <div style="text-align:right;">
+                    <button class="btn" style="background:#28a745; width:auto; padding:10px 40px;" onclick="submitPickup()">✅ 确认提货并打印</button>
+                </div>
+            </div>
+            <div id="order-empty-tip" style="color:#ccc; text-align:center; margin-top:100px;">
+                👈 请先在左侧选择一个订单
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="booking-modal">
+    <div class="modal">
+        <h3>新建预订</h3>
+        <input type="text" id="book-name" placeholder="姓名" style="width:100%; padding:10px; margin-bottom:10px; box-sizing:border-box;">
+        <input type="text" id="book-phone" placeholder="电话" style="width:100%; padding:10px; margin-bottom:10px; box-sizing:border-box;">
+        <div style="text-align:right;">
+            <button onclick="document.getElementById('booking-modal').style.display='none'" style="padding:8px;">取消</button>
+            <button onclick="submitBooking()" style="padding:8px; background:#007bff; color:white; border:none;">确认</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 全局变量 ---
+    let cart = [];
+    let currentOrder = null; // 当前选中的订单
+
+    // --- 页面切换 ---
+    function switchTab(tabName) {
+        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+
+        if (tabName === 'cashier') {
+            document.querySelectorAll('.nav-item')[0].classList.add('active');
+            document.getElementById('page-cashier').classList.add('active');
+            document.getElementById('barcode-input').focus();
+        } else {
+            document.querySelectorAll('.nav-item')[1].classList.add('active');
+            document.getElementById('page-orders').classList.add('active');
+            document.getElementById('search-input').focus();
+        }
+    }
+
+    // --- 收银台逻辑 (简化版) ---
+    const barcodeInput = document.getElementById('barcode-input');
+    barcodeInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && barcodeInput.value) {
+            fetch(`/api/scan?code=${barcodeInput.value}`)
+                .then(r => r.ok ? r.json() : Promise.reject())
+                .then(p => {
+                    const item = cart.find(i => i.id === p.id);
+                    item ? item.qty++ : cart.push({...p, qty:1});
+                    renderCart();
+                    barcodeInput.value = '';
+                }).catch(() => alert('商品未找到'));
+        }
+    });
+
+    function renderCart() {
+        const list = document.getElementById('cart-list');
+        let total = 0;
+        list.innerHTML = cart.map((item, idx) => {
+            total += item.price * item.qty;
+            return `<div class="cart-item">
+                    <div>${item.name}</div>
+                    <div style="color:red;">${item.price}</div>
+                    <div>x${item.qty}</div>
+                    <div>${(item.price*item.qty).toFixed(2)}</div>
+                    <div onclick="cart.splice(${idx},1);renderCart()" style="cursor:pointer;">×</div>
+                </div>`;
+        }).join('');
+        document.getElementById('total-val').innerText = total.toFixed(2);
+    }
+
+    function clearCart() { cart = []; renderCart(); }
+
+    function checkout() {
+        if(cart.length===0) return alert('购物车是空的');
+        fetch('/api/checkout', {
+            method:'POST',
+            body: JSON.stringify({ items: cart.map(i=>({id:i.id, qty:i.qty})) })
+        }).then(r => r.ok ? (alert('结算成功'), clearCart()) : r.text().then(alert));
+    }
+
+    // --- 预订逻辑 ---
+    function openBookModal() {
+        if(cart.length===0) return alert('请先扫码添加商品');
+        document.getElementById('booking-modal').style.display = 'flex';
+        document.getElementById('book-name').focus();
+    }
+
+    function submitBooking() {
+        const name = document.getElementById('book-name').value;
+        const phone = document.getElementById('book-phone').value;
+        if(!name) return alert('姓名必填');
+
+        fetch('/api/book', {
+            method: 'POST',
+            body: JSON.stringify({
+                customer_name: name,
+                phone: phone,
+                items: cart.map(i=>({id:i.id, qty:i.qty}))
+            })
+        }).then(r => r.ok ? r.text() : Promise.reject())
+            .then(msg => {
+                alert(msg);
+                document.getElementById('booking-modal').style.display='none';
+                clearCart();
+            }).catch(() => alert('预订失败'));
+    }
+
+    // --- 订单管理逻辑 (核心) ---
+    function searchOrders() {
+        const q = document.getElementById('search-input').value;
+        fetch(`/api/orders?q=${q}`)
+            .then(r => r.json())
+            .then(orders => {
+                const list = document.getElementById('order-list');
+                if(orders.length === 0) {
+                    list.innerHTML = '<div style="text-align:center; color:#999; margin-top:20px;">无相关待处理订单</div>';
+                    return;
+                }
+                list.innerHTML = orders.map((o, idx) => `
+                        <div class="order-card" onclick="selectOrder(${idx})" id="order-card-${idx}">
+                            <div style="font-weight:bold;">${o.customer_name} <span style="font-weight:normal; color:#666;">${o.phone}</span></div>
+                            <div style="font-size:12px; color:#999;">${o.created_at.substring(0,16)}</div>
+                            <div style="font-size:12px; color:#007bff;">含 ${o.items.length} 种商品</div>
+                        </div>
+                    `).join('');
+                // 把数据存到 DOM 对象里方便获取
+                window.cachedOrders = orders;
+            });
+    }
+
+    function selectOrder(idx) {
+        // 样式处理
+        document.querySelectorAll('.order-card').forEach(el => el.classList.remove('selected'));
+        document.getElementById(`order-card-${idx}`).classList.add('selected');
+
+        // 数据展示
+        const order = window.cachedOrders[idx];
+        currentOrder = order; // 全局保存
+
+        document.getElementById('order-empty-tip').style.display = 'none';
+        document.getElementById('order-detail-content').style.display = 'flex';
+        document.getElementById('detail-name').innerText = order.customer_name;
+        document.getElementById('detail-phone').innerText = order.phone;
+
+        // 渲染提货列表
+        const list = document.getElementById('pickup-list');
+        list.innerHTML = order.items.map(item => {
+            const remain = item.qty_ordered - item.qty_picked;
+            if(remain <= 0) return ''; // 已经取完的就不显示了
+
+            return `
+                <div class="pickup-item">
+                    <div style="flex:1;">
+                        <div style="font-weight:bold;">${item.product_name}</div>
+                        <div style="font-size:12px; color:#666;">订购: ${item.qty_ordered} | 已取: ${item.qty_picked}</div>
+                    </div>
+                    <div style="margin-right:10px; color:#f56c6c;">剩余: ${remain}</div>
+                    <input type="number" class="pickup-input"
+                           data-id="${item.id}"
+                           data-max="${remain}"
+                           value="0" min="0" max="${remain}"
+                           onfocus="this.select()">
+                </div>`;
+        }).join('');
+    }
+
+    function submitPickup() {
+        if(!currentOrder) return;
+
+        const inputs = document.querySelectorAll('.pickup-input');
+        const pickupItems = [];
+
+        inputs.forEach(input => {
+            const qty = parseInt(input.value);
+            const max = parseInt(input.dataset.max);
+            const id = parseInt(input.dataset.id);
+
+            if(qty > 0) {
+                if(qty > max) {
+                    alert('提取数量不能超过剩余数量！');
+                    throw new Error('Over qty');
+                }
+                pickupItems.push({ item_id: id, qty: qty });
+            }
+        });
+
+        if(pickupItems.length === 0) return alert('请输入要提取的数量');
+
+        fetch('/api/pickup', {
+            method: 'POST',
+            body: JSON.stringify({
+                order_id: currentOrder.id,
+                items: pickupItems
+            })
+        }).then(r => r.ok ? r.text() : r.text().then(t=>{throw new Error(t)}))
+            .then(msg => {
+                alert(msg);
+                // 刷新界面
+                searchOrders();
+                document.getElementById('order-detail-content').style.display = 'none';
+                document.getElementById('order-empty-tip').style.display = 'block';
+            }).catch(e => {
+            if(e.message !== 'Over qty') alert('提货失败: ' + e.message);
+        });
+    }
+</script>
+</body>
+</html>
