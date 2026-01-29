@@ -57,13 +57,22 @@ func (r *OrderRepo) GetItemsByOrderID(orderID int) ([]model.OrderItem, error) {
 	var items []model.OrderItem
 	for rows.Next() {
 		var i model.OrderItem
-		rows.Scan(&i.ID, &i.ProductID, &i.ProductName, &i.Price, &i.QtyOrdered, &i.QtyPicked)
+		// 注意：这里 product_id 可能是 NULL (如果商品被删了)，所以我们要用 sql.NullInt64 或者简单处理
+		// 为了简单，如果数据库是 NULL，Scan 到 int 会报错。
+		// 我们这里做一个小技巧：COALESCE(product_id, 0) 把 NULL 转成 0
+		err = rows.Scan(&i.ID, &i.ProductID, &i.ProductName, &i.Price, &i.QtyOrdered, &i.QtyPicked)
+		if err != nil {
+			// 如果扫描失败，尝试容错处理（通常是因为 NULL）
+			var nullPid sql.NullInt64
+			rows.Scan(&i.ID, &nullPid, &i.ProductName, &i.Price, &i.QtyOrdered, &i.QtyPicked)
+			i.ProductID = int(nullPid.Int64)
+		}
 		items = append(items, i)
 	}
 	return items, nil
 }
 
-// GetItemByID 获取单条明细 (用于提货校验)
+// GetItemByID 获取单条明细
 func (r *OrderRepo) GetItemByID(tx *sql.Tx, itemID int) (*model.OrderItem, error) {
 	var i model.OrderItem
 	err := tx.QueryRow(`SELECT id, product_id, product_name, qty_ordered, qty_picked FROM order_items WHERE id = ?`, itemID).Scan(&i.ID, &i.ProductID, &i.ProductName, &i.QtyOrdered, &i.QtyPicked)
@@ -92,5 +101,31 @@ func (r *OrderRepo) CheckOrderComplete(tx *sql.Tx, orderID int) (bool, error) {
 // UpdateStatus 更新订单状态
 func (r *OrderRepo) UpdateStatus(tx *sql.Tx, orderID int, status string) error {
 	_, err := tx.Exec("UPDATE orders SET status = ? WHERE id = ?", status, orderID)
+	return err
+}
+
+// --- 👇 新增的两个关键方法 👇 ---
+
+// HasActiveOrders 检查该商品是否存在于未完成的订单中
+func (r *OrderRepo) HasActiveOrders(productID int) (bool, error) {
+	var count int
+	// 联表查询：查 order_items 里的商品，且该订单的状态是 Pending
+	sqlStr := `
+		SELECT COUNT(*) 
+		FROM order_items oi 
+		JOIN orders o ON oi.order_id = o.id 
+		WHERE oi.product_id = ? AND o.status = 'Pending'
+	`
+	err := r.DB.QueryRow(sqlStr, productID).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// UnlinkProduct 将历史订单中的 product_id 设为 NULL (解除关联)
+func (r *OrderRepo) UnlinkProduct(productID int) error {
+	// 只有把 product_id 设为 NULL，删除 products 表里的记录才不会报错
+	_, err := r.DB.Exec("UPDATE order_items SET product_id = NULL WHERE product_id = ?", productID)
 	return err
 }

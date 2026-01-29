@@ -5,15 +5,16 @@ import (
 	"net/http"
 	"pos-demo/internal/model"
 	"pos-demo/internal/repository"
-	"pos-demo/internal/service" // 引入 service 包
+	"pos-demo/internal/service"
+	"strconv"
 )
 
 type ProductHandler struct {
 	Repo      *repository.ProductRepo
-	Inventory *service.InventoryService // 注入 InventoryService
+	Inventory *service.InventoryService
 }
 
-// Scan 方法保持不变
+// Scan 扫码
 func (h *ProductHandler) Scan(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
 	p, err := h.Repo.FindByBarcode(code)
@@ -25,9 +26,10 @@ func (h *ProductHandler) Scan(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(p)
 }
 
-// ListInventory 获取库存列表 API
+// ListInventory 获取库存列表
 func (h *ProductHandler) ListInventory(w http.ResponseWriter, r *http.Request) {
-	list, err := h.Inventory.GetList()
+	query := r.URL.Query().Get("q")
+	list, err := h.Inventory.GetList(query)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -36,7 +38,7 @@ func (h *ProductHandler) ListInventory(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(list)
 }
 
-// AddOrUpdate 新增或修改 API
+// AddOrUpdate 新增或修改
 func (h *ProductHandler) AddOrUpdate(w http.ResponseWriter, r *http.Request) {
 	var p model.Product
 	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
@@ -46,10 +48,8 @@ func (h *ProductHandler) AddOrUpdate(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 	if p.ID > 0 {
-		// 有ID是修改
 		err = h.Inventory.EditProduct(p)
 	} else {
-		// 没ID是新增
 		err = h.Inventory.AddProduct(p)
 	}
 
@@ -60,7 +60,24 @@ func (h *ProductHandler) AddOrUpdate(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("操作成功"))
 }
 
-// SearchProduct 联想搜索 API
+// DeleteProduct 删除商品接口 (新增)
+func (h *ProductHandler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
+	idStr := r.URL.Query().Get("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "无效ID", 400)
+		return
+	}
+
+	if err := h.Inventory.DeleteProduct(id); err != nil {
+		// 这里如果报错，通常是因为有外键关联（即该商品有历史订单）
+		http.Error(w, "无法删除：该商品可能已有销售记录", 500)
+		return
+	}
+	w.Write([]byte("ok"))
+}
+
+// SearchProduct 收银台联想搜索
 func (h *ProductHandler) SearchProduct(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
 	if q == "" {

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GoPOS PRO - 样式修复版</title>
+    <title>GoPOS PRO - 完整版</title>
     <style>
         :root {
             --primary: #2563eb;
@@ -19,15 +19,12 @@
 
         body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg-body); color: var(--text-main); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 
-        /* 隐藏数字输入框箭头 */
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         input[type=number] { -moz-appearance: textfield; }
 
-        /* SVG 图标 */
         .icon { width: 24px; height: 24px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
         .icon-sm { width: 18px; height: 18px; stroke: currentColor; stroke-width: 2; fill: none; }
 
-        /* 顶部导航 */
         .header { background-color: var(--bg-card); height: 60px; padding: 0 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
         .brand { font-size: 20px; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
         .nav-tabs { display: flex; gap: 4px; background: #e2e8f0; padding: 4px; border-radius: 6px; }
@@ -35,7 +32,6 @@
         .nav-item:hover { color: var(--text-main); background: #cbd5e1; }
         .nav-item.active { background: white; color: var(--primary); box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
 
-        /* 布局 */
         .page { display: none; flex: 1; padding: 16px; height: calc(100vh - 60px); box-sizing: border-box; }
         .page.active { display: flex; gap: 16px; }
         .card { background: var(--bg-card); border-radius: var(--radius); display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--shadow); border: 1px solid var(--border); }
@@ -46,24 +42,18 @@
         .cart-item { display: grid; grid-template-columns: 3fr 1fr 1.5fr 1fr 40px; padding: 16px; border-bottom: 1px solid var(--border); align-items: center; transition: background 0.1s; font-size: 15px; }
         .cart-item:hover { background: #f8fafc; }
 
-        /* 数量控制器 */
         .qty-control { display: flex; align-items: center; border: 2px solid var(--border); border-radius: 6px; width: fit-content; background: white; overflow: hidden; }
         .qty-btn { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; cursor: pointer; background: #e2e8f0; color: #0f172a; font-size: 20px; font-weight: 700; line-height: 1; user-select: none; transition: 0.2s; }
         .qty-btn:hover { background: #cbd5e1; }
         .qty-val { width: 40px; height: 32px; text-align: center; font-size: 16px; font-weight: 700; border: none; outline: none; color: var(--text-main); border-left: 1px solid var(--border); border-right: 1px solid var(--border); background: white; }
 
-        /* 价格编辑器 */
         .price-edit-wrapper { display: flex; align-items: center; font-weight: 600; color: var(--text-sub); }
         .price-edit { width: 80px; border: 1px solid transparent; border-bottom: 2px solid var(--border); padding: 4px 0; outline: none; font-size: 16px; font-weight: 700; color: var(--text-main); background: transparent; margin-left: 4px; transition: all 0.2s; }
         .price-edit:focus { border-bottom-color: var(--primary); color: var(--primary); background: #eff6ff; border-radius: 4px; padding: 4px 8px; }
 
-        /* 操作区 & 搜索框 */
         .action-section { flex: 3; padding: 20px; gap: 20px; display: flex; flex-direction: column; background: white; }
         .search-wrapper { position: relative; }
-
-        /* --- 核心修复点：给 scan-box 加上相对定位 --- */
-        .scan-box { position: relative; }
-
+        .scan-box { position: relative; width: 100%; }
         .scan-box input { width: 100%; padding: 16px 16px 16px 48px; font-size: 16px; border: 2px solid var(--border); border-radius: var(--radius); outline: none; box-sizing: border-box; transition: 0.2s; background: #f8fafc; }
         .scan-box input:focus { border-color: var(--primary); background: white; box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
         .search-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-sub); pointer-events: none; }
@@ -81,9 +71,8 @@
         .btn-danger-ghost { background: #fef2f2; color: #ef4444; border: 2px solid transparent; }
         .btn-danger-ghost:hover { background: #fee2e2; border-color: #fecaca; }
         .btn-icon-only { width: 36px; height: 36px; border-radius: 6px; background: transparent; border: none; cursor: pointer; color: #94a3b8; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
-        .btn-icon-only:hover { background: #fee2e2; color: #ef4444; }
+        .btn-icon-only:hover { background: #fef2f2; color: #ef4444; }
 
-        /* 搜索下拉 */
         .search-results { position: absolute; top: 100%; left: 0; width: 100%; background: white; border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); margin-top: 4px; z-index: 100; max-height: 300px; overflow-y: auto; display: none; }
         .search-item { padding: 12px 16px; border-bottom: 1px solid #f1f5f9; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 15px; }
         .search-item:hover { background: #f8fafc; }
@@ -91,7 +80,7 @@
         /* 表格 */
         .data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
         .data-table th { background: #f8fafc; padding: 10px 16px; text-align: left; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--text-sub); }
-        .data-table td { padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text-main); }
+        .data-table td { padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--text-main); vertical-align: middle; }
         .data-table tr:hover { background: #f8fafc; }
 
         /* 弹窗 */
@@ -198,13 +187,18 @@
         <div style="padding:20px 24px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; background:#f8fafc;">
             <div style="font-weight:800; font-size:18px;">📦 商品库存列表</div>
             <div style="display:flex; gap:12px;">
-                <button class="btn btn-outline" style="width:auto; padding:10px 16px; font-size:14px;" onclick="loadInventory()">刷新</button>
+                <div style="width: 300px;">
+                    <div class="scan-box">
+                        <svg class="icon search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        <input type="text" placeholder="搜索商品..." oninput="loadInventory(this.value)" style="background:white; padding-top:10px; padding-bottom:10px;">
+                    </div>
+                </div>
                 <button class="btn btn-primary" style="width:auto; padding:10px 16px; font-size:14px;" onclick="openProductModal()">新增商品</button>
             </div>
         </div>
         <div style="flex:1; overflow-y:auto;">
             <table class="data-table">
-                <thead><tr><th style="width:60px">ID</th><th>条码</th><th>名称</th><th>进价</th><th>售价</th><th>库存</th><th style="width:80px">操作</th></tr></thead>
+                <thead><tr><th style="width:60px">ID</th><th>条码</th><th>名称</th><th>进价</th><th>售价</th><th>库存</th><th style="width:120px">操作</th></tr></thead>
                 <tbody id="inventory-list"></tbody>
             </table>
         </div>
@@ -387,11 +381,36 @@
         fetch('/api/pickup',{method:'POST',body:JSON.stringify({order_id:currentOrder.id,items:items})}).then(r=>r.ok?(alert('✅ 提货成功'),searchOrders(),document.getElementById('order-detail-content').style.display='none',document.getElementById('order-empty-tip').style.display='flex'):alert('失败，请检查数量'));
     }
 
-    function loadInventory(){
-        fetch('/api/inventory/list').then(r=>r.json()).then(l=>{
-            document.getElementById('inventory-list').innerHTML=l.map(p=>`<tr><td style="color:var(--text-sub);font-family:monospace;">${p.id}</td><td style="font-family:monospace;font-weight:600;">${p.barcode}</td><td><div style="font-weight:700;font-size:15px;">${p.name}</div></td><td>${p.cost_price.toFixed(2)}</td><td><div style="font-weight:800;color:var(--text-main);">${p.price.toFixed(2)}</div></td><td><div style="font-weight:700;${p.stock<10?'color:#ef4444':''}">${p.stock}</div></td><td><button style="color:var(--primary);border:none;background:none;cursor:pointer;font-weight:700;padding:8px;" onclick='openProductModal(${JSON.stringify(p)})'>编辑</button></td></tr>`).join('');
+    let invDebounce;
+    function loadInventory(query = '') {
+        clearTimeout(invDebounce);
+        invDebounce = setTimeout(() => {
+            fetch(`/api/inventory/list?q=${query}`).then(r=>r.json()).then(l=>{
+                document.getElementById('inventory-list').innerHTML=l.map(p=>`
+                <tr>
+                    <td style="color:var(--text-sub);font-family:monospace;">${p.id}</td>
+                    <td style="font-family:monospace;font-weight:600;">${p.barcode}</td>
+                    <td><div style="font-weight:700;font-size:15px;">${p.name}</div></td>
+                    <td>${p.cost_price.toFixed(2)}</td>
+                    <td><div style="font-weight:800;color:var(--text-main);">${p.price.toFixed(2)}</div></td>
+                    <td><div style="font-weight:700;${p.stock<10?'color:#ef4444':''}">${p.stock}</div></td>
+                    <td>
+                        <button style="color:var(--primary);border:none;background:none;cursor:pointer;font-weight:700;padding:8px;" onclick='openProductModal(${JSON.stringify(p)})'>编辑</button>
+                        <button style="color:#ef4444;border:none;background:none;cursor:pointer;font-weight:700;padding:8px;" onclick='deleteProduct(${p.id})'>删除</button>
+                    </td>
+                </tr>`).join('');
+            });
+        }, 300);
+    }
+
+    function deleteProduct(id) {
+        if(!confirm('⚠️ 确定要删除该商品吗？\n注意：如果商品已有销售记录，将无法删除。')) return;
+        fetch(`/api/inventory/delete?id=${id}`).then(r => {
+            if(r.ok) { alert('✅ 删除成功'); loadInventory(); }
+            else { r.text().then(alert); }
         });
     }
+
     function openProductModal(p){
         document.getElementById('product-modal').style.display='flex';
         const t=p?'编辑':'新增'; document.getElementById('modal-title').innerHTML=`<svg class="icon" style="color:var(--primary);" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"></path></svg> ${t}商品`;
@@ -410,8 +429,6 @@
     }
 
     inputEl.focus();
-    // 添加加载动画 CSS
-    document.head.insertAdjacentHTML('beforeend', '<style>@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }</style>');
 </script>
 </body>
 </html>
