@@ -38,9 +38,14 @@ func main() {
 	pHandler := &handler.ProductHandler{Repo: pRepo, Inventory: inventorySvc}
 	oHandler := &handler.OrderHandler{Service: checkoutSvc}
 	rHandler := &handler.ReportHandler{Service: reportSvc}
-
-	// 新增系统 Handler
 	sysHandler := &handler.SystemHandler{}
+
+	// 👇【新增】测试数据生成器 Handler
+	testHandler := &handler.TestHandler{
+		PRepo:     pRepo,
+		ORepo:     oRepo,
+		Inventory: inventorySvc,
+	}
 
 	// 4. 路由注册
 	http.Handle("/", http.FileServer(http.Dir("./static")))
@@ -57,9 +62,12 @@ func main() {
 	http.HandleFunc("/api/inventory/delete", pHandler.DeleteProduct)
 	http.HandleFunc("/api/report", rHandler.GetReport)
 
-	// 👇【新增】系统管理接口
+	// 系统管理接口
 	http.HandleFunc("/api/system/backup", sysHandler.Backup)
 	http.HandleFunc("/api/system/restore", sysHandler.Restore)
+
+	// 👇【新增】测试数据生成接口 (浏览器访问即可生成)
+	http.HandleFunc("/api/debug/seed", testHandler.SeedData)
 
 	log.Println("Start: http://localhost:8080 (TimeZone: Asia/Shanghai)")
 	log.Fatal(http.ListenAndServe("0.0.0.0:8080", nil))

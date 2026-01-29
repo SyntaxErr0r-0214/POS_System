@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"pos-demo/internal/model"
+	"time"
 )
 
 type OrderRepo struct {
@@ -131,4 +132,15 @@ func (r *OrderRepo) HasActiveOrders(productID int) (bool, error) {
 func (r *OrderRepo) UnlinkProduct(productID int) error {
 	_, err := r.DB.Exec("UPDATE order_items SET product_id = NULL WHERE product_id = ?", productID)
 	return err
+}
+
+// CreateOrderWithTime (测试用) 创建指定时间的订单
+func (r *OrderRepo) CreateOrderWithTime(tx *sql.Tx, customer string, phone string, status string, createTime time.Time) (int64, error) {
+	// 注意：这里我们显式插入 created_at 字段
+	res, err := tx.Exec("INSERT INTO orders (customer_name, phone, status, created_at) VALUES (?, ?, ?, ?)",
+		customer, phone, status, createTime)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
 }
