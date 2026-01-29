@@ -121,3 +121,31 @@ func (r *ProductRepo) FindByName(name string) (*model.Product, error) {
 	}
 	return &p, nil
 }
+
+// BatchProcure 批量采购入库 (更新库存和价格)
+func (r *ProductRepo) BatchProcure(items []map[string]interface{}) error {
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return err
+	}
+
+	stmt, err := tx.Prepare("UPDATE products SET stock = stock + ?, cost_price = ?, price = ? WHERE id = ?")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, item := range items {
+		// id, add_stock, cost, price
+		id := int64(item["id"].(float64))
+		addStock := int(item["add_stock"].(float64))
+		cost := item["cost"].(float64)
+		price := item["price"].(float64)
+
+		if _, err := stmt.Exec(addStock, cost, price, id); err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+	return tx.Commit()
+}

@@ -56,10 +56,16 @@ func main() {
 	http.HandleFunc("/api/book", oHandler.Book)
 	http.HandleFunc("/api/orders", oHandler.Search)
 	http.HandleFunc("/api/pickup", oHandler.Pickup)
+	// 👇 新增：采购清单接口
+	http.HandleFunc("/api/procurement", oHandler.GetProcurement)
+
 	http.HandleFunc("/api/product/search", pHandler.SearchProduct)
 	http.HandleFunc("/api/inventory/list", pHandler.ListInventory)
 	http.HandleFunc("/api/inventory/save", pHandler.AddOrUpdate)
 	http.HandleFunc("/api/inventory/delete", pHandler.DeleteProduct)
+	// 👇 新增：批量采购入库接口
+	http.HandleFunc("/api/inventory/procure", pHandler.Procure)
+
 	http.HandleFunc("/api/report", rHandler.GetReport)
 
 	// 系统管理接口

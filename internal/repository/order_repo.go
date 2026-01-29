@@ -144,3 +144,42 @@ func (r *OrderRepo) CreateOrderWithTime(tx *sql.Tx, customer string, phone strin
 	}
 	return res.LastInsertId()
 }
+
+// ProcurementItem 采购清单项
+type ProcurementItem struct {
+	ProductID    int64  `json:"product_id"` // 新增：需要ID来更新
+	ProductName  string `json:"product_name"`
+	CurrentStock int    `json:"current_stock"` // 新增：当前库存
+	TotalNeeded  int    `json:"total_needed"`  // 订单总需求
+}
+
+// GetProcurementList 获取待采购清单 (聚合所有 Pending 订单的剩余需求 + 当前库存)
+func (r *OrderRepo) GetProcurementList() ([]ProcurementItem, error) {
+	// 逻辑升级：关联 products 表获取当前库存
+	// 统计所有 Pending 订单中 (订购 - 已取) 的数量
+	sqlStr := `
+		SELECT p.id, p.name, p.stock, SUM(oi.qty_ordered - oi.qty_picked) as demand
+		FROM order_items oi
+		JOIN orders o ON oi.order_id = o.id
+		JOIN products p ON oi.product_id = p.id
+		WHERE o.status = 'Pending'
+		GROUP BY p.id
+		HAVING demand > 0
+		ORDER BY demand DESC
+	`
+	rows, err := r.DB.Query(sqlStr)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []ProcurementItem
+	for rows.Next() {
+		var item ProcurementItem
+		if err := rows.Scan(&item.ProductID, &item.ProductName, &item.CurrentStock, &item.TotalNeeded); err != nil {
+			continue
+		}
+		list = append(list, item)
+	}
+	return list, nil
+}

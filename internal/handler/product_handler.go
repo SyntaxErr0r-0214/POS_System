@@ -110,3 +110,18 @@ func (h *ProductHandler) SearchProduct(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(list)
 }
+
+// Procure 批量采购接口
+func (h *ProductHandler) Procure(w http.ResponseWriter, r *http.Request) {
+	var items []map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&items); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+
+	if err := h.Repo.BatchProcure(items); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.Write([]byte("success"))
+}

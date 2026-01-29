@@ -39,7 +39,7 @@ func (h *OrderHandler) Book(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("预订成功"))
 }
 
-// Search 搜索订单 (核心修改)
+// Search 搜索订单
 func (h *OrderHandler) Search(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
 	status := r.URL.Query().Get("status") // 获取状态参数
@@ -55,7 +55,7 @@ func (h *OrderHandler) Search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 顺便把每个订单的 items 查出来，前端展示方便
+	// 每个订单的 items 查出来，前端展示
 	for i := range orders {
 		items, _ := h.Service.OrderRepo.GetItemsByOrderID(orders[i].ID)
 		orders[i].Items = items
@@ -77,4 +77,15 @@ func (h *OrderHandler) Pickup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Write([]byte("提货成功"))
+}
+
+// GetProcurement 获取采购清单
+func (h *OrderHandler) GetProcurement(w http.ResponseWriter, r *http.Request) {
+	list, err := h.Service.OrderRepo.GetProcurementList()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(list)
 }

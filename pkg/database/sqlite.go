@@ -59,14 +59,5 @@ func Init() *sql.DB {
 	// 初始化测试数据 (也顺便更新了，加上了进价)
 	var count int
 	db.QueryRow("SELECT COUNT(*) FROM products").Scan(&count)
-	if count == 0 {
-		// 注意：这里的 SQL 语句变了，多了 cost_price
-		// 参数顺序: 条码, 名称, 售价, 进价, 库存
-		db.Exec("INSERT INTO products (barcode, name, price, cost_price, stock) VALUES (?, ?, ?, ?, ?)",
-			"123456", "可口可乐", 3.00, 2.50, 100)
-
-		db.Exec("INSERT INTO products (barcode, name, price, cost_price, stock) VALUES (?, ?, ?, ?, ?)",
-			"888888", "卫龙", 5.50, 3.00, 50)
-	}
 	return db
 }
