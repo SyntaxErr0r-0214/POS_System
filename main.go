@@ -8,46 +8,59 @@ import (
 	"pos-demo/internal/service"
 	"pos-demo/pkg/database"
 	"pos-demo/pkg/printer"
+	"time"
 )
 
 func main() {
-	// 1. 底层初始化
+	// 1. 设置时区
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		loc = time.FixedZone("CST", 8*3600)
+	}
+	time.Local = loc
+
+	// 2. 初始化数据库
 	db := database.Init()
 	defer db.Close()
 
 	p := printer.GetPrinter()
 	printer.SetPrinter(p)
 
-	// 2. 依赖注入
+	// 3. 依赖注入
 	pRepo := repository.NewProductRepo(db)
 	oRepo := repository.NewOrderRepo(db)
+	rRepo := repository.NewReportRepo(db)
 
-	// --- 核心修改在这里 ---
-	// InventoryService 现在需要 pRepo 和 oRepo 两个参数
 	inventorySvc := service.NewInventoryService(pRepo, oRepo)
 	checkoutSvc := service.NewCheckoutService(db, pRepo, oRepo)
-	// ---------------------
+	reportSvc := service.NewReportService(rRepo)
 
-	pHandler := &handler.ProductHandler{
-		Repo:      pRepo,
-		Inventory: inventorySvc,
-	}
+	pHandler := &handler.ProductHandler{Repo: pRepo, Inventory: inventorySvc}
 	oHandler := &handler.OrderHandler{Service: checkoutSvc}
+	rHandler := &handler.ReportHandler{Service: reportSvc}
 
-	// 3. 路由
+	// 新增系统 Handler
+	sysHandler := &handler.SystemHandler{}
+
+	// 4. 路由注册
 	http.Handle("/", http.FileServer(http.Dir("./static")))
 
+	// 业务接口
 	http.HandleFunc("/api/scan", pHandler.Scan)
 	http.HandleFunc("/api/checkout", oHandler.Checkout)
 	http.HandleFunc("/api/book", oHandler.Book)
 	http.HandleFunc("/api/orders", oHandler.Search)
 	http.HandleFunc("/api/pickup", oHandler.Pickup)
-
 	http.HandleFunc("/api/product/search", pHandler.SearchProduct)
 	http.HandleFunc("/api/inventory/list", pHandler.ListInventory)
 	http.HandleFunc("/api/inventory/save", pHandler.AddOrUpdate)
 	http.HandleFunc("/api/inventory/delete", pHandler.DeleteProduct)
+	http.HandleFunc("/api/report", rHandler.GetReport)
 
-	log.Println("Start: http://localhost:8080")
+	// 👇【新增】系统管理接口
+	http.HandleFunc("/api/system/backup", sysHandler.Backup)
+	http.HandleFunc("/api/system/restore", sysHandler.Restore)
+
+	log.Println("Start: http://localhost:8080 (TimeZone: Asia/Shanghai)")
 	log.Fatal(http.ListenAndServe("0.0.0.0:8080", nil))
 }

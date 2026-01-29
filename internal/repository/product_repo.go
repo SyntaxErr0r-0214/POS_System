@@ -111,3 +111,13 @@ func (r *ProductRepo) Delete(id int) error {
 	_, err := r.DB.Exec("DELETE FROM products WHERE id = ?", id)
 	return err
 }
+
+// FindByName 根据名称查找 (新增，用于查重)
+func (r *ProductRepo) FindByName(name string) (*model.Product, error) {
+	var p model.Product
+	err := r.DB.QueryRow("SELECT id, barcode, name, price, cost_price, stock FROM products WHERE name = ?", name).Scan(&p.ID, &p.Barcode, &p.Name, &p.Price, &p.CostPrice, &p.Stock)
+	if err != nil {
+		return nil, err
+	}
+	return &p, nil
+}

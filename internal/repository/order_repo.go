@@ -29,9 +29,23 @@ func (r *OrderRepo) CreateOrderItem(tx *sql.Tx, item model.OrderItem) error {
 	return err
 }
 
-// SearchPendingOrders 搜索未完成订单
-func (r *OrderRepo) SearchPendingOrders(query string) ([]model.Order, error) {
-	rows, err := r.DB.Query(`SELECT id, customer_name, phone, status, created_at FROM orders WHERE status = 'Pending' AND (customer_name LIKE ? OR phone LIKE ?) ORDER BY id DESC`, "%"+query+"%", "%"+query+"%")
+// GetOrders 通用订单查询 (核心升级)
+// status: 'Pending' 或 'Completed'
+// query: 搜索关键词 (ID, 姓名, 电话)
+func (r *OrderRepo) GetOrders(status string, query string) ([]model.Order, error) {
+	sqlStr := `SELECT id, customer_name, phone, status, created_at FROM orders WHERE status = ?`
+	args := []interface{}{status}
+
+	if query != "" {
+		// 支持搜单号(纯数字) 或 姓名/电话
+		sqlStr += ` AND (customer_name LIKE ? OR phone LIKE ? OR id = ?)`
+		likeQuery := "%" + query + "%"
+		args = append(args, likeQuery, likeQuery, query)
+	}
+
+	sqlStr += ` ORDER BY id DESC LIMIT 50` // 限制50条，避免卡顿
+
+	rows, err := r.DB.Query(sqlStr, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +60,7 @@ func (r *OrderRepo) SearchPendingOrders(query string) ([]model.Order, error) {
 	return orders, nil
 }
 
-// GetItemsByOrderID 获取订单下的商品
+// GetItemsByOrderID 获取订单明细
 func (r *OrderRepo) GetItemsByOrderID(orderID int) ([]model.OrderItem, error) {
 	rows, err := r.DB.Query(`SELECT id, product_id, product_name, price, qty_ordered, qty_picked FROM order_items WHERE order_id = ?`, orderID)
 	if err != nil {
@@ -57,14 +71,10 @@ func (r *OrderRepo) GetItemsByOrderID(orderID int) ([]model.OrderItem, error) {
 	var items []model.OrderItem
 	for rows.Next() {
 		var i model.OrderItem
-		// 注意：这里 product_id 可能是 NULL (如果商品被删了)，所以我们要用 sql.NullInt64 或者简单处理
-		// 为了简单，如果数据库是 NULL，Scan 到 int 会报错。
-		// 我们这里做一个小技巧：COALESCE(product_id, 0) 把 NULL 转成 0
-		err = rows.Scan(&i.ID, &i.ProductID, &i.ProductName, &i.Price, &i.QtyOrdered, &i.QtyPicked)
-		if err != nil {
-			// 如果扫描失败，尝试容错处理（通常是因为 NULL）
-			var nullPid sql.NullInt64
-			rows.Scan(&i.ID, &nullPid, &i.ProductName, &i.Price, &i.QtyOrdered, &i.QtyPicked)
+		// 处理 product_id 可能为 NULL 的情况 (商品已删除)
+		var nullPid sql.NullInt64
+		err = rows.Scan(&i.ID, &nullPid, &i.ProductName, &i.Price, &i.QtyOrdered, &i.QtyPicked)
+		if err == nil {
 			i.ProductID = int(nullPid.Int64)
 		}
 		items = append(items, i)
@@ -82,19 +92,21 @@ func (r *OrderRepo) GetItemByID(tx *sql.Tx, itemID int) (*model.OrderItem, error
 	return &i, nil
 }
 
-// UpdatePickedQty 更新已提货数量
+// UpdatePickedQty 更新已取数量
 func (r *OrderRepo) UpdatePickedQty(tx *sql.Tx, itemID int, qty int) error {
 	_, err := tx.Exec("UPDATE order_items SET qty_picked = qty_picked + ? WHERE id = ?", qty, itemID)
 	return err
 }
 
-// CheckOrderComplete 检查订单是否全部完成
+// CheckOrderComplete 检查订单是否全部取完
 func (r *OrderRepo) CheckOrderComplete(tx *sql.Tx, orderID int) (bool, error) {
 	var unpickedCount int
+	// 统计 "订购量 > 已取量" 的条目数
 	err := tx.QueryRow("SELECT COUNT(*) FROM order_items WHERE order_id = ? AND qty_picked < qty_ordered", orderID).Scan(&unpickedCount)
 	if err != nil {
 		return false, err
 	}
+	// 如果没有未取完的条目，说明完成了
 	return unpickedCount == 0, nil
 }
 
@@ -104,18 +116,10 @@ func (r *OrderRepo) UpdateStatus(tx *sql.Tx, orderID int, status string) error {
 	return err
 }
 
-// --- 👇 新增的两个关键方法 👇 ---
-
-// HasActiveOrders 检查该商品是否存在于未完成的订单中
+// HasActiveOrders 检查商品是否有未完成订单
 func (r *OrderRepo) HasActiveOrders(productID int) (bool, error) {
 	var count int
-	// 联表查询：查 order_items 里的商品，且该订单的状态是 Pending
-	sqlStr := `
-		SELECT COUNT(*) 
-		FROM order_items oi 
-		JOIN orders o ON oi.order_id = o.id 
-		WHERE oi.product_id = ? AND o.status = 'Pending'
-	`
+	sqlStr := `SELECT COUNT(*) FROM order_items oi JOIN orders o ON oi.order_id = o.id WHERE oi.product_id = ? AND o.status = 'Pending'`
 	err := r.DB.QueryRow(sqlStr, productID).Scan(&count)
 	if err != nil {
 		return false, err
@@ -123,9 +127,8 @@ func (r *OrderRepo) HasActiveOrders(productID int) (bool, error) {
 	return count > 0, nil
 }
 
-// UnlinkProduct 将历史订单中的 product_id 设为 NULL (解除关联)
+// UnlinkProduct 解除商品关联
 func (r *OrderRepo) UnlinkProduct(productID int) error {
-	// 只有把 product_id 设为 NULL，删除 products 表里的记录才不会报错
 	_, err := r.DB.Exec("UPDATE order_items SET product_id = NULL WHERE product_id = ?", productID)
 	return err
 }

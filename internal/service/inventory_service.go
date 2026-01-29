@@ -2,21 +2,19 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"pos-demo/internal/model"
 	"pos-demo/internal/repository"
+	"time"
 )
 
 type InventoryService struct {
 	Repo      *repository.ProductRepo
-	OrderRepo *repository.OrderRepo // <--- 新增依赖
+	OrderRepo *repository.OrderRepo
 }
 
-// 注意：这里参数变了，多传一个 orderRepo
 func NewInventoryService(pRepo *repository.ProductRepo, oRepo *repository.OrderRepo) *InventoryService {
-	return &InventoryService{
-		Repo:      pRepo,
-		OrderRepo: oRepo,
-	}
+	return &InventoryService{Repo: pRepo, OrderRepo: oRepo}
 }
 
 // GetList 获取列表
@@ -27,16 +25,37 @@ func (s *InventoryService) GetList(query string) ([]model.Product, error) {
 	return s.Repo.SearchInventory(query)
 }
 
-// AddProduct 入库
-func (s *InventoryService) AddProduct(p model.Product) error {
-	if p.Barcode == "" || p.Name == "" {
-		return errors.New("条码和名称必填")
+// CheckDuplicateResult 查重结果结构体
+type CheckDuplicateResult struct {
+	IsDuplicate bool
+	ExistingID  int
+	Message     string
+}
+
+// AddProduct 入库 (含自动条码和查重)
+func (s *InventoryService) AddProduct(p model.Product) (CheckDuplicateResult, error) {
+	// 1. 自动生成条码 (如果为空)
+	if p.Barcode == "" {
+		// 使用时间戳生成唯一条码，例如: A20231024120000
+		p.Barcode = fmt.Sprintf("A%s", time.Now().Format("20060102150405"))
 	}
-	exist, _ := s.Repo.FindByBarcode(p.Barcode)
-	if exist != nil {
-		return errors.New("该条码已存在")
+
+	// 2. 查重：条码
+	if exist, _ := s.Repo.FindByBarcode(p.Barcode); exist != nil {
+		return CheckDuplicateResult{IsDuplicate: true, ExistingID: exist.ID, Message: "条码已存在"}, nil
 	}
-	return s.Repo.Create(p)
+
+	// 3. 查重：名称
+	if p.Name == "" {
+		return CheckDuplicateResult{}, errors.New("商品名称不能为空")
+	}
+	if exist, _ := s.Repo.FindByName(p.Name); exist != nil {
+		return CheckDuplicateResult{IsDuplicate: true, ExistingID: exist.ID, Message: "商品名称已存在"}, nil
+	}
+
+	// 4. 执行保存
+	err := s.Repo.Create(p)
+	return CheckDuplicateResult{IsDuplicate: false}, err
 }
 
 // EditProduct 编辑
@@ -44,31 +63,30 @@ func (s *InventoryService) EditProduct(p model.Product) error {
 	if p.ID == 0 {
 		return errors.New("商品ID丢失")
 	}
+	// 编辑时也要简单查重，防止改成了别人的条码 (略简化，只查条码)
+	if p.Barcode != "" {
+		exist, _ := s.Repo.FindByBarcode(p.Barcode)
+		if exist != nil && exist.ID != p.ID {
+			return errors.New("修改后的条码与其他商品冲突")
+		}
+	}
 	return s.Repo.Update(p)
 }
 
-// DeleteProduct 删除商品 (核心逻辑更新)
+// DeleteProduct 删除
 func (s *InventoryService) DeleteProduct(id int) error {
 	if id <= 0 {
 		return errors.New("无效ID")
 	}
-
-	// 1. 检查是否有“进行中(Pending)”的预订订单
 	hasPending, err := s.OrderRepo.HasActiveOrders(id)
 	if err != nil {
 		return err
 	}
 	if hasPending {
-		// 如果有预订，直接拒绝删除，并告知前端
-		return errors.New("无法删除：该商品存在于【未完成的预订订单】中，请先处理订单！")
+		return errors.New("无法删除：该商品存在于【未完成的预订订单】中")
 	}
-
-	// 2. 如果只有“已完成(Completed)”的历史订单，就切断关联
-	// 把 order_items 表里这个商品的 ID 设为 NULL，保留名称和价格记录
 	if err := s.OrderRepo.UnlinkProduct(id); err != nil {
 		return errors.New("解除历史关联失败")
 	}
-
-	// 3. 彻底删除商品档案
 	return s.Repo.Delete(id)
 }

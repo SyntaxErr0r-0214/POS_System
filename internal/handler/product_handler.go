@@ -38,6 +38,13 @@ func (h *ProductHandler) ListInventory(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(list)
 }
 
+// SaveResponse 保存接口的返回结构
+type SaveResponse struct {
+	Success    bool   `json:"success"`
+	Message    string `json:"message"`
+	ConflictID int    `json:"conflict_id,omitempty"` // 如果重复，返回冲突ID
+}
+
 // AddOrUpdate 新增或修改
 func (h *ProductHandler) AddOrUpdate(w http.ResponseWriter, r *http.Request) {
 	var p model.Product
@@ -46,21 +53,34 @@ func (h *ProductHandler) AddOrUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var err error
+	w.Header().Set("Content-Type", "application/json")
+	var resp SaveResponse
+
 	if p.ID > 0 {
-		err = h.Inventory.EditProduct(p)
+		// 编辑模式
+		err := h.Inventory.EditProduct(p)
+		if err != nil {
+			resp = SaveResponse{Success: false, Message: err.Error()}
+		} else {
+			resp = SaveResponse{Success: true, Message: "修改成功"}
+		}
 	} else {
-		err = h.Inventory.AddProduct(p)
+		// 新增模式 (包含查重逻辑)
+		result, err := h.Inventory.AddProduct(p)
+		if err != nil {
+			resp = SaveResponse{Success: false, Message: err.Error()}
+		} else if result.IsDuplicate {
+			// 发现重复，返回特定的ID和消息
+			resp = SaveResponse{Success: false, Message: result.Message, ConflictID: result.ExistingID}
+		} else {
+			resp = SaveResponse{Success: true, Message: "入库成功"}
+		}
 	}
 
-	if err != nil {
-		http.Error(w, err.Error(), 400)
-		return
-	}
-	w.Write([]byte("操作成功"))
+	json.NewEncoder(w).Encode(resp)
 }
 
-// DeleteProduct 删除商品接口 (新增)
+// DeleteProduct 删除
 func (h *ProductHandler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("id")
 	id, err := strconv.Atoi(idStr)
@@ -68,29 +88,25 @@ func (h *ProductHandler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "无效ID", 400)
 		return
 	}
-
 	if err := h.Inventory.DeleteProduct(id); err != nil {
-		// 这里如果报错，通常是因为有外键关联（即该商品有历史订单）
-		http.Error(w, "无法删除：该商品可能已有销售记录", 500)
+		http.Error(w, err.Error(), 500)
 		return
 	}
 	w.Write([]byte("ok"))
 }
 
-// SearchProduct 收银台联想搜索
+// SearchProduct 联想搜索
 func (h *ProductHandler) SearchProduct(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
 	if q == "" {
 		w.Write([]byte("[]"))
 		return
 	}
-
 	list, err := h.Repo.Search(q)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(list)
 }
