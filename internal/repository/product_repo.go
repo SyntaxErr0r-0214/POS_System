@@ -16,7 +16,7 @@ func NewProductRepo(db *sql.DB) *ProductRepo {
 // FindByBarcode 根据条码查找
 func (r *ProductRepo) FindByBarcode(code string) (*model.Product, error) {
 	var p model.Product
-	err := r.DB.QueryRow("SELECT id, barcode, name, price, cost_price, stock FROM products WHERE barcode = ?", code).Scan(&p.ID, &p.Barcode, &p.Name, &p.Price, &p.CostPrice, &p.Stock)
+	err := r.DB.QueryRow("SELECT id, barcode, name, category, price, cost_price, stock FROM products WHERE barcode = ?", code).Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock)
 	if err != nil {
 		return nil, err
 	}
@@ -26,7 +26,7 @@ func (r *ProductRepo) FindByBarcode(code string) (*model.Product, error) {
 // FindByID 根据ID查找
 func (r *ProductRepo) FindByID(tx *sql.Tx, id int) (*model.Product, error) {
 	var p model.Product
-	err := tx.QueryRow("SELECT id, name, barcode, price, cost_price, stock FROM products WHERE id = ?", id).Scan(&p.ID, &p.Name, &p.Barcode, &p.Price, &p.CostPrice, &p.Stock)
+	err := tx.QueryRow("SELECT id, name, barcode, category, price, cost_price, stock FROM products WHERE id = ?", id).Scan(&p.ID, &p.Name, &p.Barcode, &p.Category, &p.Price, &p.CostPrice, &p.Stock)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func (r *ProductRepo) DecreaseStock(tx *sql.Tx, productID int, qty int) error {
 
 // GetAll 获取所有商品
 func (r *ProductRepo) GetAll() ([]model.Product, error) {
-	rows, err := r.DB.Query("SELECT id, barcode, name, price, cost_price, stock FROM products ORDER BY id DESC")
+	rows, err := r.DB.Query("SELECT id, barcode, name, category, price, cost_price, stock FROM products ORDER BY id DESC")
 	if err != nil {
 		return nil, err
 	}
@@ -50,16 +50,16 @@ func (r *ProductRepo) GetAll() ([]model.Product, error) {
 	var products []model.Product
 	for rows.Next() {
 		var p model.Product
-		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Price, &p.CostPrice, &p.Stock)
+		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock)
 		products = append(products, p)
 	}
 	return products, nil
 }
 
-// SearchInventory 库存搜索
+// SearchInventory 库存搜索 (支持搜分类名)
 func (r *ProductRepo) SearchInventory(query string) ([]model.Product, error) {
 	param := "%" + query + "%"
-	rows, err := r.DB.Query("SELECT id, barcode, name, price, cost_price, stock FROM products WHERE name LIKE ? OR barcode LIKE ? ORDER BY id DESC", param, param)
+	rows, err := r.DB.Query("SELECT id, barcode, name, category, price, cost_price, stock FROM products WHERE name LIKE ? OR barcode LIKE ? OR category LIKE ? ORDER BY id DESC", param, param, param)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func (r *ProductRepo) SearchInventory(query string) ([]model.Product, error) {
 	var list []model.Product
 	for rows.Next() {
 		var p model.Product
-		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Price, &p.CostPrice, &p.Stock)
+		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock)
 		list = append(list, p)
 	}
 	return list, nil
@@ -77,7 +77,7 @@ func (r *ProductRepo) SearchInventory(query string) ([]model.Product, error) {
 // Search 联想搜索
 func (r *ProductRepo) Search(query string) ([]model.Product, error) {
 	param := "%" + query + "%"
-	rows, err := r.DB.Query("SELECT id, barcode, name, price, cost_price, stock FROM products WHERE name LIKE ? OR barcode LIKE ? ORDER BY id DESC LIMIT 10", param, param)
+	rows, err := r.DB.Query("SELECT id, barcode, name, category, price, cost_price, stock FROM products WHERE name LIKE ? OR barcode LIKE ? OR category LIKE ? ORDER BY id DESC LIMIT 10", param, param, param)
 	if err != nil {
 		return nil, err
 	}
@@ -86,43 +86,43 @@ func (r *ProductRepo) Search(query string) ([]model.Product, error) {
 	var list []model.Product
 	for rows.Next() {
 		var p model.Product
-		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Price, &p.CostPrice, &p.Stock)
+		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock)
 		list = append(list, p)
 	}
 	return list, nil
 }
 
-// Create 新增
+// Create 新增 (写入 Category)
 func (r *ProductRepo) Create(p model.Product) error {
-	_, err := r.DB.Exec("INSERT INTO products (barcode, name, price, cost_price, stock) VALUES (?, ?, ?, ?, ?)",
-		p.Barcode, p.Name, p.Price, p.CostPrice, p.Stock)
+	_, err := r.DB.Exec("INSERT INTO products (barcode, name, category, price, cost_price, stock) VALUES (?, ?, ?, ?, ?, ?)",
+		p.Barcode, p.Name, p.Category, p.Price, p.CostPrice, p.Stock)
 	return err
 }
 
-// Update 更新
+// Update 更新 (写入 Category)
 func (r *ProductRepo) Update(p model.Product) error {
-	_, err := r.DB.Exec("UPDATE products SET name=?, price=?, cost_price=?, stock=? WHERE id=?",
-		p.Name, p.Price, p.CostPrice, p.Stock, p.ID)
+	_, err := r.DB.Exec("UPDATE products SET name=?, category=?, price=?, cost_price=?, stock=? WHERE id=?",
+		p.Name, p.Category, p.Price, p.CostPrice, p.Stock, p.ID)
 	return err
 }
 
-// Delete 删除商品 (新增)
+// Delete 删除商品
 func (r *ProductRepo) Delete(id int) error {
 	_, err := r.DB.Exec("DELETE FROM products WHERE id = ?", id)
 	return err
 }
 
-// FindByName 根据名称查找 (新增，用于查重)
+// FindByName 根据名称查找
 func (r *ProductRepo) FindByName(name string) (*model.Product, error) {
 	var p model.Product
-	err := r.DB.QueryRow("SELECT id, barcode, name, price, cost_price, stock FROM products WHERE name = ?", name).Scan(&p.ID, &p.Barcode, &p.Name, &p.Price, &p.CostPrice, &p.Stock)
+	err := r.DB.QueryRow("SELECT id, barcode, name, category, price, cost_price, stock FROM products WHERE name = ?", name).Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock)
 	if err != nil {
 		return nil, err
 	}
 	return &p, nil
 }
 
-// BatchProcure 批量采购入库 (更新库存和价格)
+// BatchProcure 批量采购入库
 func (r *ProductRepo) BatchProcure(items []map[string]interface{}) error {
 	tx, err := r.DB.Begin()
 	if err != nil {
@@ -136,7 +136,6 @@ func (r *ProductRepo) BatchProcure(items []map[string]interface{}) error {
 	defer stmt.Close()
 
 	for _, item := range items {
-		// id, add_stock, cost, price
 		id := int64(item["id"].(float64))
 		addStock := int(item["add_stock"].(float64))
 		cost := item["cost"].(float64)

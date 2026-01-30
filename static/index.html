@@ -6,7 +6,6 @@
     <title>万康生态食品团购超市 POS</title>
     <script src="https://cdn.bootcdn.net/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
     <style>
-        /* --- 1. CSS 变量 --- */
         :root {
             --primary: #10b981;
             --primary-dark: #059669;
@@ -57,6 +56,12 @@
         .search-bar input { width: 100%; padding: 14px 20px 14px 48px; border: 1px solid var(--border); border-radius: 50px; font-size: 16px; outline: none; box-shadow: 0 2px 5px rgba(0,0,0,0.02); transition: 0.2s; background: white; }
         .search-bar input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15); }
         .search-icon { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; color: #9ca3af; pointer-events: none; }
+
+        /* 分类标签栏样式 (防止挤压) */
+        .category-tabs { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 16px; scrollbar-width: thin; flex-shrink: 0; }
+        .cat-btn { padding: 8px 16px; background: white; border: 1px solid #e5e7eb; border-radius: 20px; font-weight: 600; font-size: 14px; cursor: pointer; white-space: nowrap; transition: 0.2s; color: var(--text-sub); }
+        .cat-btn.active { background: var(--primary); color: white; border-color: var(--primary); box-shadow: 0 2px 5px rgba(16, 185, 129, 0.2); }
+        .cat-btn:hover:not(.active) { background: #f9fafb; border-color: #d1d5db; color: var(--primary); }
 
         /* Cashier */
         .cashier-left { width: 420px; background: white; border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 5; box-shadow: 4px 0 15px rgba(0,0,0,0.02); }
@@ -149,7 +154,8 @@
         </div>
     </div>
     <div class="cashier-right">
-        <div style="margin-bottom:24px; max-width:600px;"><div class="search-bar"><svg class="search-icon icon-svg"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg><input type="text" id="barcode-input" placeholder="扫描条码 / 搜索商品名称..." autocomplete="off"></div></div>
+        <div class="category-tabs" id="cashier-cats"></div>
+        <div style="margin-bottom:24px; max-width:600px; flex-shrink: 0;"><div class="search-bar"><svg class="search-icon icon-svg"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg><input type="text" id="barcode-input" placeholder="扫描条码 / 搜索商品名称..." autocomplete="off"></div></div>
         <div class="product-grid" id="product-grid"></div>
     </div>
 </div>
@@ -178,7 +184,7 @@
 
 <div id="page-inventory" class="page" style="padding:24px;">
     <div class="table-container">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
             <h2 style="margin:0; font-size:24px; font-weight:800;">📦 商品库存</h2>
             <div style="display:flex; gap:12px; align-items:center;">
                 <button class="btn btn-warning-ghost" id="btn-low-stock" onclick="toggleLowStock()">⚠️ 缺货</button>
@@ -190,8 +196,10 @@
                 <button class="btn btn-primary" style="padding:12px 20px;" onclick="openProductModal()">+ 新增商品</button>
             </div>
         </div>
+        <div class="category-tabs" id="inventory-cats" style="margin-bottom:20px;"></div>
+
         <div style="flex:1; overflow-y:auto;">
-            <table class="data-table"><thead><tr style="background:#f9fafb; border-bottom:2px solid var(--border);"><th style="width:60px;">ID</th><th>条码</th><th>名称</th><th>进价</th><th>售价</th><th>库存</th><th>毛利</th><th style="text-align:right;">操作</th></tr></thead><tbody id="inventory-list"></tbody></table>
+            <table class="data-table"><thead><tr style="background:#f9fafb; border-bottom:2px solid var(--border);"><th style="width:60px;">ID</th><th>分类</th><th>条码</th><th>名称</th><th>进价</th><th>售价</th><th>库存</th><th>毛利</th><th style="text-align:right;">操作</th></tr></thead><tbody id="inventory-list"></tbody></table>
         </div>
     </div>
 </div>
@@ -214,7 +222,16 @@
 
 <div class="modal-overlay" id="product-modal">
     <div class="modal">
-        <h3 id="modal-title">商品信息</h3><input type="hidden" id="prod-id"><div class="form-group"><label>条码</label><input id="prod-barcode"></div><div class="form-group"><label>名称</label><input id="prod-name"></div>
+        <h3 id="modal-title">商品信息</h3><input type="hidden" id="prod-id">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+            <div class="form-group"><label>条码</label><input id="prod-barcode"></div>
+            <div class="form-group">
+                <label>分类</label>
+                <input id="prod-category" list="cat-list" placeholder="选择或输入分类">
+                <datalist id="cat-list"></datalist>
+            </div>
+        </div>
+        <div class="form-group"><label>名称</label><input id="prod-name"></div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;"><div class="form-group"><label>进价</label><input type="number" id="prod-cost" step="0.01" oninput="calcMargin()"></div><div class="form-group"><label>售价</label><input type="number" id="prod-price" step="0.01" oninput="calcMargin()"></div></div>
         <div style="font-weight:700; color:var(--primary); font-size:15px; margin-bottom:20px; display:flex; justify-content:space-between; background:#ecfdf5; padding:12px; border-radius:8px;" id="margin-display"><span>毛利: ¥0.00</span><span>0%</span></div><div class="form-group"><label>库存</label><input type="number" id="prod-stock"></div>
         <div class="modal-footer"><button class="btn btn-outline" onclick="document.getElementById('product-modal').style.display='none'">取消</button><button class="btn btn-primary" onclick="saveProduct()">保存</button></div>
@@ -236,7 +253,9 @@
                     <th style="padding:12px;">商品名称</th>
                     <th style="padding:12px;">当前库存</th>
                     <th style="padding:12px;">订单需求</th>
-                    <th style="padding:12px;color:#9ca3af;">建议采购</th> <th style="padding:12px;color:var(--primary);">实际入库</th> <th style="padding:12px;">进价(Cost)</th>
+                    <th style="padding:12px;color:#9ca3af;">建议采购</th>
+                    <th style="padding:12px;color:var(--primary);">实际入库</th>
+                    <th style="padding:12px;">进价(Cost)</th>
                     <th style="padding:12px;">售价(Price)</th>
                 </tr>
                 </thead>
@@ -287,6 +306,7 @@
     // --- Data ---
     let cart=[], allProducts=[], currentOrder=null, currentOrderTab='Pending', chartInstanceBar=null, chartInstancePie=null, procurementData=[];
     let showLowStockOnly = false;
+    let currentCategory = '全部';
 
     function switchTab(t) {
         document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'));
@@ -301,11 +321,45 @@
     }
 
     // --- Cashier ---
-    function loadProductGrid() { fetch('/api/inventory/list').then(r=>r.json()).then(list=>{ allProducts=list; renderProductGrid(list); }); }
+    function loadProductGrid() {
+        fetch('/api/inventory/list').then(r=>r.json()).then(list=>{
+            allProducts=list;
+            renderCategories(list);
+            renderProductGrid(list);
+        });
+    }
+
+    function renderCategories(list) {
+        const cats = ['全部', ...new Set(list.map(p => p.category || '未分类'))];
+        const generateTabs = (id) => {
+            const container = document.getElementById(id);
+            if(!container) return;
+            container.innerHTML = cats.map(c => `
+                <div class="cat-btn ${c === currentCategory ? 'active' : ''}"
+                     onclick="selectCategory('${c}', '${id}')">${c}</div>
+            `).join('');
+        };
+        generateTabs('cashier-cats');
+        generateTabs('inventory-cats');
+    }
+
+    function selectCategory(c, sourceId) {
+        currentCategory = c;
+        renderCategories(allProducts);
+        if(sourceId === 'cashier-cats') renderProductGrid(allProducts);
+        if(sourceId === 'inventory-cats') loadInventory();
+    }
+
     function renderProductGrid(list) {
         const grid = document.getElementById('product-grid');
         const addCard = `<div class="product-card add-new" onclick="document.getElementById('temp-product-modal').style.display='flex';setTimeout(()=>document.getElementById('temp-prod-name').focus(),100)"><svg class="icon-svg" style="width:40px;height:40px;" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg><div style="font-weight:700;margin-top:8px;">新增临时商品</div></div>`;
-        const items = list.map(p => {
+
+        let filtered = list;
+        if (currentCategory !== '全部') {
+            filtered = list.filter(p => (p.category || '未分类') === currentCategory);
+        }
+
+        const items = filtered.map(p => {
             const isTemp = p.price === 0;
             const isOut = !isTemp && p.stock <= 0;
             let badge = '';
@@ -324,27 +378,48 @@
         grid.innerHTML = addCard + items;
     }
 
+    // --- 核心修复：添加临时商品 -> 自动切换到'临时'分类 -> 自动加车 ---
     function confirmAddTemp() {
         const name = document.getElementById('temp-prod-name').value;
         if(!name) return showToast("请输入名称", "error");
-        const p = { barcode: 'T'+Date.now().toString().slice(-6), name: name, cost_price: 0, price: 0, stock: 0 };
+        // 关键点：临时商品默认分类为 '临时'
+        const p = { barcode: 'T'+Date.now().toString().slice(-6), name: name, category: '临时', cost_price: 0, price: 0, stock: 0 };
+
         fetch('/api/inventory/save', {method:'POST', body:JSON.stringify(p)}).then(r=>r.json()).then(res => {
             if(res.success) {
                 showToast("已添加至当前订单");
                 document.getElementById('temp-product-modal').style.display='none';
                 document.getElementById('temp-prod-name').value = '';
+
+                // 1. 重新获取商品列表
                 fetch('/api/inventory/list').then(r=>r.json()).then(list => {
                     allProducts = list;
-                    renderProductGrid(list);
-                    const newProd = list.find(x => x.name === name && x.price === 0);
-                    if(newProd) addToCart(newProd);
+
+                    // 2. 强制切换到 '临时' 分类，让用户看到新商品
+                    selectCategory('临时', 'cashier-cats');
+
+                    // 3. 找到刚才创建的商品，自动加入购物车
+                    const newProd = list.find(x => x.name === name && x.price === 0 && x.category === '临时');
+                    if(newProd) {
+                        addToCart(newProd);
+                    }
                 });
             } else { showToast(res.message, "error"); }
         });
     }
 
-    document.getElementById('barcode-input').addEventListener('input', (e) => { renderProductGrid(allProducts.filter(p => p.name.toLowerCase().includes(e.target.value.toLowerCase()) || p.barcode.includes(e.target.value))); });
-    document.getElementById('barcode-input').addEventListener('keypress', (e) => { if(e.key==='Enter'){ const p=allProducts.find(x=>x.barcode===e.target.value); if(p){addToCart(p);e.target.value='';renderProductGrid(allProducts);} } });
+    document.getElementById('barcode-input').addEventListener('input', (e) => {
+        const val = e.target.value.toLowerCase();
+        const filtered = allProducts.filter(p => p.name.toLowerCase().includes(val) || p.barcode.includes(val));
+        renderProductGrid(filtered);
+    });
+
+    document.getElementById('barcode-input').addEventListener('keypress', (e) => {
+        if(e.key==='Enter'){
+            const p=allProducts.find(x=>x.barcode===e.target.value);
+            if(p){addToCart(p);e.target.value='';renderProductGrid(allProducts);}
+        }
+    });
 
     function addToCart(p) {
         const item = cart.find(x=>x.id===p.id);
@@ -427,7 +502,7 @@
             document.getElementById('procurement-modal').style.display = 'flex';
         });
     }
-    // [修复] 增加实际入库输入框 (id="actual-idx")
+
     function renderProcurementTable() {
         const el = document.getElementById('procurement-list');
         if (procurementData.length === 0) { el.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px; color:#9ca3af;">无待采需求</td></tr>'; return; }
@@ -446,7 +521,6 @@
     }
     function toggleAllProcure(source) { document.querySelectorAll('.procure-check').forEach(c => c.checked = source.checked); }
 
-    // [修复] 提交时读取实际入库量
     function submitProcurement() {
         const selected = [];
         const checkboxes = document.querySelectorAll('.procure-check:checked');
@@ -454,7 +528,6 @@
         for (let cb of checkboxes) {
             const idx = cb.dataset.idx;
             const item = procurementData[idx];
-            // 读取新加的 actual- 输入框
             const actualVal = document.getElementById(`actual-${idx}`).value;
             const costVal = document.getElementById(`cost-${idx}`).value;
             const priceVal = document.getElementById(`price-${idx}`).value;
@@ -463,7 +536,7 @@
 
             selected.push({
                 id: item.id,
-                add_stock: parseFloat(actualVal), // 使用实际录入的量
+                add_stock: parseFloat(actualVal),
                 cost: parseFloat(costVal),
                 price: parseFloat(priceVal)
             });
@@ -484,9 +557,17 @@
 
     function loadInventory(q='') {
         fetch(`/api/inventory/list?q=${q}`).then(r=>r.json()).then(list=>{
+            allProducts = list;
+            renderCategories(list);
+
             if(!q) list = list.filter(p => p.price > 0);
             if(showLowStockOnly) list = list.filter(p => p.stock < 10);
-            document.getElementById('inventory-list').innerHTML=list.map(p=>`<tr><td style="padding:16px;">${p.id}</td><td>${p.barcode}</td><td><b>${p.name}</b></td><td>${p.cost_price.toFixed(2)}</td><td><b>${p.price.toFixed(2)}</b></td><td><span class="${p.stock<10?'stock-warning':''}">${p.stock}</span></td><td><span style="color:var(--primary)">¥${(p.price-p.cost_price).toFixed(2)}</span></td><td style="text-align:right;"><button class="btn" style="padding:4px 8px;background:#eff6ff;color:var(--primary);" onclick='openProductModal(${JSON.stringify(p)})'>编辑</button> <button class="btn" style="padding:4px 8px;background:#fef2f2;color:var(--danger);" onclick='delProd(${p.id})'>删除</button></td></tr>`).join('');
+
+            if (currentCategory !== '全部') {
+                list = list.filter(p => (p.category || '未分类') === currentCategory);
+            }
+
+            document.getElementById('inventory-list').innerHTML=list.map(p=>`<tr><td style="padding:16px;">${p.id}</td><td><span style="background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:12px;">${p.category||'未分类'}</span></td><td>${p.barcode}</td><td><b>${p.name}</b></td><td>${p.cost_price.toFixed(2)}</td><td><b>${p.price.toFixed(2)}</b></td><td><span class="${p.stock<10?'stock-warning':''}">${p.stock}</span></td><td><span style="color:var(--primary)">¥${(p.price-p.cost_price).toFixed(2)}</span></td><td style="text-align:right;"><button class="btn" style="padding:4px 8px;background:#eff6ff;color:var(--primary);" onclick='openProductModal(${JSON.stringify(p)})'>编辑</button> <button class="btn" style="padding:4px 8px;background:#fef2f2;color:var(--danger);" onclick='delProd(${p.id})'>删除</button></td></tr>`).join('');
         });
     }
 
@@ -496,8 +577,45 @@
         });
     }
 
-    function openProductModal(p){ document.getElementById('product-modal').style.display='flex'; document.getElementById('modal-title').innerText=p?'✏️ 编辑':'✨ 新增'; document.getElementById('prod-id').value=p?p.id:0; document.getElementById('prod-barcode').value=p?p.barcode:''; document.getElementById('prod-name').value=p?p.name:''; document.getElementById('prod-cost').value=p?p.cost_price:''; document.getElementById('prod-price').value=p?p.price:''; document.getElementById('prod-stock').value=p?p.stock:''; calcMargin(); }
-    function saveProduct(){ const p={id:parseInt(document.getElementById('prod-id').value)||0,barcode:document.getElementById('prod-barcode').value,name:document.getElementById('prod-name').value,cost_price:parseFloat(document.getElementById('prod-cost').value)||0,price:parseFloat(document.getElementById('prod-price').value)||0,stock:parseInt(document.getElementById('prod-stock').value)||0}; fetch('/api/inventory/save',{method:'POST',body:JSON.stringify(p)}).then(r=>r.json()).then(res=>{ if(res.success){showToast('✅ 保存成功');document.getElementById('product-modal').style.display='none';loadInventory();}else if(res.conflict_id){showConfirm(res.message+'，跳转编辑？',()=> {document.getElementById('product-modal').style.display='none';fetch('/api/inventory/list').then(r=>r.json()).then(l=>openProductModal(l.find(x=>x.id===res.conflict_id)));})}else showToast(res.message,"error"); }); }
+    // 3. 智能填充 datalist
+    function updateCategoryDatalist(list) {
+        const cats = [...new Set(list.map(p => p.category || '未分类'))];
+        const dl = document.getElementById('cat-list');
+        if(dl) {
+            dl.innerHTML = cats.map(c => `<option value="${c}">`).join('');
+        }
+    }
+
+    function openProductModal(p){
+        document.getElementById('product-modal').style.display='flex';
+        document.getElementById('modal-title').innerText=p?'✏️ 编辑':'✨ 新增';
+
+        // 打开弹窗时，更新 datalist 选项
+        updateCategoryDatalist(allProducts);
+
+        document.getElementById('prod-id').value=p?p.id:0;
+        document.getElementById('prod-barcode').value=p?p.barcode:'';
+        document.getElementById('prod-name').value=p?p.name:'';
+        document.getElementById('prod-category').value=p?p.category:'';
+        document.getElementById('prod-cost').value=p?p.cost_price:'';
+        document.getElementById('prod-price').value=p?p.price:'';
+        document.getElementById('prod-stock').value=p?p.stock:'';
+        calcMargin();
+    }
+
+    function saveProduct(){
+        const p={
+            id:parseInt(document.getElementById('prod-id').value)||0,
+            barcode:document.getElementById('prod-barcode').value,
+            name:document.getElementById('prod-name').value,
+            category:document.getElementById('prod-category').value || '未分类',
+            cost_price:parseFloat(document.getElementById('prod-cost').value)||0,
+            price:parseFloat(document.getElementById('prod-price').value)||0,
+            stock:parseInt(document.getElementById('prod-stock').value)||0
+        };
+        fetch('/api/inventory/save',{method:'POST',body:JSON.stringify(p)}).then(r=>r.json()).then(res=>{ if(res.success){showToast('✅ 保存成功');document.getElementById('product-modal').style.display='none';loadInventory();loadProductGrid();}else if(res.conflict_id){showConfirm(res.message+'，跳转编辑？',()=> {document.getElementById('product-modal').style.display='none';fetch('/api/inventory/list').then(r=>r.json()).then(l=>openProductModal(l.find(x=>x.id===res.conflict_id)));})}else showToast(res.message,"error"); });
+    }
+
     function calcMargin(){ const c=parseFloat(document.getElementById('prod-cost').value)||0, p=parseFloat(document.getElementById('prod-price').value)||0; document.getElementById('margin-display').innerHTML=`<span>毛利: ¥${(p-c).toFixed(2)}</span><span>${p>0?((p-c)/p*100).toFixed(0):0}%</span>`; }
     function openBookModal(){ if(cart.length===0)return showToast("购物车为空","error"); document.getElementById('booking-modal').style.display='flex'; }
     function submitBooking(){ const n=document.getElementById('book-name').value, p=document.getElementById('book-phone').value; if(!n)return showToast("姓名必填","error"); fetch('/api/book',{method:'POST',body:JSON.stringify({customer_name:n,phone:p,items:cart})}).then(r=>r.ok?(showToast('✅ 挂单成功'),document.getElementById('booking-modal').style.display='none',clearCart()):showToast('失败',"error")); }

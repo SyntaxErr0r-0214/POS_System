@@ -19,15 +19,15 @@ func Init() *sql.DB {
 		log.Fatal("无法开启外键支持:", err)
 	}
 
-	// --- 核心修改在这里 ---
-	// 我们在 products 表里增加了一个 cost_price (进价) 字段
+	// --- 1. 商品表 (新增 category) ---
 	sqlStmt := `
 	CREATE TABLE IF NOT EXISTS products (
 		id INTEGER PRIMARY KEY AUTOINCREMENT, 
 		barcode TEXT UNIQUE, 
 		name TEXT, 
+		category TEXT DEFAULT '未分类',  -- <--- 新增这一列
 		price REAL, 
-		cost_price REAL DEFAULT 0, -- <--- 新增了这一列
+		cost_price REAL DEFAULT 0, 
 		stock INTEGER DEFAULT 0
 	);
 	
@@ -56,8 +56,15 @@ func Init() *sql.DB {
 		log.Fatal("创建表结构失败: ", err)
 	}
 
-	// 初始化测试数据 (也顺便更新了，加上了进价)
+	// 初始化测试数据 (为了演示分类，我们预设两个不同分类的商品)
 	var count int
 	db.QueryRow("SELECT COUNT(*) FROM products").Scan(&count)
+	if count == 0 {
+		// 注意：这里的 SQL 参数多了 category
+		db.Exec("INSERT INTO products (barcode, name, category, price, cost_price, stock) VALUES (?, ?, ?, ?, ?, ?)",
+			"123456", "可口可乐", "饮料", 3.00, 2.20, 100)
+		db.Exec("INSERT INTO products (barcode, name, category, price, cost_price, stock) VALUES (?, ?, ?, ?, ?, ?)",
+			"888888", "精品香蕉", "水果", 5.50, 3.00, 50)
+	}
 	return db
 }
