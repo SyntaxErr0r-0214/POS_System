@@ -4,53 +4,114 @@ package printer
 
 import (
 	"fmt"
-
-	"github.com/alexbrainman/printer"
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/transform"
+	"io/ioutil"
+	"log"
+	"strings"
+	"syscall"
+	"unsafe"
 )
 
-type WindowsUSBPrinter struct {
-	PrinterName string
+// ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+// ⚠️ 务必修改！去控制面板看你的打印机叫什么名字
+// 即使差一个空格都会导致打印失败
+const PrinterName = "POS-58"
+
+// ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+
+type WindowsPrinter struct{}
+
+func init() {
+	// 在 Windows 下编译时，自动注册这个驱动
+	Current = &WindowsPrinter{}
 }
 
-func utf8ToGbk(s string) ([]byte, error) {
-	result, _, err := transform.Bytes(simplifiedchinese.GBK.NewEncoder(), []byte(s))
-	return result, err
+func (p *WindowsPrinter) PrintTicket(content string) error {
+	log.Printf("正在尝试打印到: %s", PrinterName)
+	return rawPrint(PrinterName, content)
 }
 
-func (p *WindowsUSBPrinter) PrintTicket(content string) error {
-	prt, err := printer.Open(p.PrinterName)
+// --- 以下是 Windows API 调用的底层封装 (核心魔法) ---
+
+var (
+	modwinspool  = syscall.NewLazyDLL("winspool.drv")
+	openPrinter  = modwinspool.NewProc("OpenPrinterW")
+	startDoc     = modwinspool.NewProc("StartDocPrinterW")
+	startPage    = modwinspool.NewProc("StartPagePrinter")
+	writePrinter = modwinspool.NewProc("WritePrinter")
+	endPage      = modwinspool.NewProc("EndPagePrinter")
+	endDoc       = modwinspool.NewProc("EndDocPrinter")
+	closePrinter = modwinspool.NewProc("ClosePrinter")
+)
+
+type DOC_INFO_1 struct {
+	pDocName    *uint16
+	pOutputFile *uint16
+	pDatatype   *uint16
+}
+
+// rawPrint 直接向打印机发送原始数据 (RAW Mode)
+func rawPrint(printerName, data string) error {
+	// 1. 编码转换：Go(UTF-8) -> 打印机(GBK)
+	gbkData, err := utf8ToGbk(data)
 	if err != nil {
 		return err
 	}
-	defer prt.Close()
 
-	if err := prt.StartDocument("POS_Receipt", "RAW"); err != nil {
-		return err
+	// 2. 打开打印机句柄
+	namePtr, _ := syscall.UTF16PtrFromString(printerName)
+	var hPrinter syscall.Handle
+	r1, _, err := openPrinter.Call(
+		uintptr(unsafe.Pointer(namePtr)),
+		uintptr(unsafe.Pointer(&hPrinter)),
+		0,
+	)
+	if r1 == 0 {
+		return fmt.Errorf("打开打印机失败: %v (请检查【设备和打印机】里的名字是否完全一致)", err)
 	}
-	if err := prt.StartPage(); err != nil {
-		return err
+	defer closePrinter.Call(uintptr(hPrinter))
+
+	// 3. 开始文档
+	docNamePtr, _ := syscall.UTF16PtrFromString("POS Receipt")
+	dataTypePtr, _ := syscall.UTF16PtrFromString("RAW") // 关键：使用 RAW 模式直接发指令
+	di := DOC_INFO_1{
+		pDocName:    docNamePtr,
+		pOutputFile: nil,
+		pDatatype:   dataTypePtr,
+	}
+	r1, _, err = startDoc.Call(uintptr(hPrinter), 1, uintptr(unsafe.Pointer(&di)))
+	if r1 == 0 {
+		return fmt.Errorf("StartDoc 失败: %v", err)
+	}
+	defer endDoc.Call(uintptr(hPrinter))
+
+	// 4. 开始页
+	startPage.Call(uintptr(hPrinter))
+	defer endPage.Call(uintptr(hPrinter))
+
+	// 5. 构造最终数据 (内容 + ESC/POS 切纸指令)
+	// 0x1D 0x56 0x42 0x00 是通用的切纸指令
+	// 前面加几个 \n 是为了走纸，防止切到字
+	finalData := append(gbkData, []byte{0x0A, 0x0A, 0x0A, 0x0A, 0x1D, 0x56, 0x42, 0x00}...)
+
+	// 6. 写入数据
+	var written uint32
+	r1, _, err = writePrinter.Call(
+		uintptr(hPrinter),
+		uintptr(unsafe.Pointer(&finalData[0])),
+		uintptr(len(finalData)),
+		uintptr(unsafe.Pointer(&written)),
+	)
+	if r1 == 0 {
+		return fmt.Errorf("写入打印机失败: %v", err)
 	}
 
-	var data []byte
-	// ... (这里省略具体的 ESC/POS 指令，保持和你之前的一模一样即可) ...
-	// 为了节省篇幅，请把你之前验证成功的 ESC/POS 代码逻辑完整复制到这里
-	// 记得加上 utf8ToGbk 的调用
-
-	// 简单的示例占位，请用你的真实代码替换：
-	body, _ := utf8ToGbk(content)
-	data = append(data, body...)
-
-	prt.Write(data)
-	prt.EndPage()
-	prt.EndDocument()
 	return nil
 }
 
-func GetPrinter() Printer {
-	// 你的收银机打印机名字
-	name := "POS58"
-	fmt.Printf("启用 Windows 打印机: [%s]\n", name)
-	return &WindowsUSBPrinter{PrinterName: name}
+// 辅助函数：UTF-8 转 GBK
+func utf8ToGbk(s string) ([]byte, error) {
+	reader := transform.NewReader(strings.NewReader(s), simplifiedchinese.GBK.NewEncoder())
+	return ioutil.ReadAll(reader)
 }
