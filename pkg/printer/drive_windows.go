@@ -4,27 +4,28 @@ package printer
 
 import (
 	"fmt"
-	"golang.org/x/text/encoding/simplifiedchinese"
-	"golang.org/x/text/transform"
 	"io/ioutil"
 	"log"
 	"strings"
 	"syscall"
 	"unsafe"
+
+	"golang.org/x/text/encoding/simplifiedchinese"
+	"golang.org/x/text/transform"
 )
 
 // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
-// ⚠️ 务必修改！去控制面板看你的打印机叫什么名字
-// 即使差一个空格都会导致打印失败
+// ⚠️ 务必修改！去 Win7 电脑的【设备和打印机】看你的打印机名字
+// 必须一字不差，建议复制粘贴过来
 const PrinterName = "POS-58"
 
 // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
 
 type WindowsPrinter struct{}
 
-func init() {
-	// 在 Windows 下编译时，自动注册这个驱动
-	Current = &WindowsPrinter{}
+// GetPrinter [核心修复]：必须要有这个函数，main.go 才能调用
+func GetPrinter() Printer {
+	return &WindowsPrinter{}
 }
 
 func (p *WindowsPrinter) PrintTicket(content string) error {
@@ -32,7 +33,7 @@ func (p *WindowsPrinter) PrintTicket(content string) error {
 	return rawPrint(PrinterName, content)
 }
 
-// --- 以下是 Windows API 调用的底层封装 (核心魔法) ---
+// --- 以下是 Windows API 调用的底层封装 ---
 
 var (
 	modwinspool  = syscall.NewLazyDLL("winspool.drv")
@@ -74,7 +75,7 @@ func rawPrint(printerName, data string) error {
 
 	// 3. 开始文档
 	docNamePtr, _ := syscall.UTF16PtrFromString("POS Receipt")
-	dataTypePtr, _ := syscall.UTF16PtrFromString("RAW") // 关键：使用 RAW 模式直接发指令
+	dataTypePtr, _ := syscall.UTF16PtrFromString("RAW")
 	di := DOC_INFO_1{
 		pDocName:    docNamePtr,
 		pOutputFile: nil,
@@ -91,8 +92,6 @@ func rawPrint(printerName, data string) error {
 	defer endPage.Call(uintptr(hPrinter))
 
 	// 5. 构造最终数据 (内容 + ESC/POS 切纸指令)
-	// 0x1D 0x56 0x42 0x00 是通用的切纸指令
-	// 前面加几个 \n 是为了走纸，防止切到字
 	finalData := append(gbkData, []byte{0x0A, 0x0A, 0x0A, 0x0A, 0x1D, 0x56, 0x42, 0x00}...)
 
 	// 6. 写入数据
