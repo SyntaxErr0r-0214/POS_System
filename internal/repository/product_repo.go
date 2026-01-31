@@ -148,3 +148,10 @@ func (r *ProductRepo) BatchProcure(items []map[string]interface{}) error {
 	}
 	return tx.Commit()
 }
+
+// UpdateStock 更新库存 (加库存/减库存通用版)
+// qty > 0 表示加库存 (退货/入库)，qty < 0 表示减库存
+func (r *ProductRepo) UpdateStock(tx *sql.Tx, productID int64, qty int) error {
+	_, err := tx.Exec("UPDATE products SET stock = stock + ? WHERE id = ?", qty, productID)
+	return err
+}

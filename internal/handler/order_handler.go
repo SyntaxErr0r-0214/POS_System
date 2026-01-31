@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"pos-demo/internal/model"
 	"pos-demo/internal/service"
@@ -42,9 +43,8 @@ func (h *OrderHandler) Book(w http.ResponseWriter, r *http.Request) {
 // Search 搜索订单
 func (h *OrderHandler) Search(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
-	status := r.URL.Query().Get("status") // 获取状态参数
+	status := r.URL.Query().Get("status")
 
-	// 默认查 Pending
 	if status == "" {
 		status = "Pending"
 	}
@@ -55,7 +55,7 @@ func (h *OrderHandler) Search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 每个订单的 items 查出来，前端展示
+	// 填充 Items
 	for i := range orders {
 		items, _ := h.Service.OrderRepo.GetItemsByOrderID(orders[i].ID)
 		orders[i].Items = items
@@ -88,4 +88,54 @@ func (h *OrderHandler) GetProcurement(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(list)
+}
+
+// Refund 全单退款接口
+func (h *OrderHandler) Refund(w http.ResponseWriter, r *http.Request) {
+	idStr := r.URL.Query().Get("id")
+	if idStr == "" {
+		http.Error(w, "缺少订单ID", 400)
+		return
+	}
+
+	var orderID int
+	fmt.Sscanf(idStr, "%d", &orderID)
+
+	if err := h.Service.RefundOrder(orderID); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.Write([]byte("退款成功"))
+}
+
+// Reprint 补打接口
+func (h *OrderHandler) Reprint(w http.ResponseWriter, r *http.Request) {
+	idStr := r.URL.Query().Get("id")
+	var orderID int
+	fmt.Sscanf(idStr, "%d", &orderID)
+
+	if orderID == 0 {
+		http.Error(w, "无效ID", 400)
+		return
+	}
+
+	if err := h.Service.ReprintTicket(orderID); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.Write([]byte("补打指令已发送"))
+}
+
+// DoPartialRefund 部分退款接口 (这就是你缺失的那个方法！)
+func (h *OrderHandler) DoPartialRefund(w http.ResponseWriter, r *http.Request) {
+	var req service.PartialRefundRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "参数错误", 400)
+		return
+	}
+	if err := h.Service.PartialRefund(req); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.Write([]byte("退款成功"))
 }

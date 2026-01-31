@@ -33,18 +33,26 @@ func (r *OrderRepo) CreateOrderItem(tx *sql.Tx, item model.OrderItem) error {
 // GetOrders 通用订单查询 (核心升级)
 // status: 'Pending' 或 'Completed'
 // query: 搜索关键词 (ID, 姓名, 电话)
+// GetOrders 获取订单列表
 func (r *OrderRepo) GetOrders(status string, query string) ([]model.Order, error) {
-	sqlStr := `SELECT id, customer_name, phone, status, created_at FROM orders WHERE status = ?`
-	args := []interface{}{status}
+	var sqlStr string
+	var args []interface{}
 
-	if query != "" {
-		// 支持搜单号(纯数字) 或 姓名/电话
-		sqlStr += ` AND (customer_name LIKE ? OR phone LIKE ? OR id = ?)`
-		likeQuery := "%" + query + "%"
-		args = append(args, likeQuery, likeQuery, query)
+	if status == "Completed" {
+		// [修改] 历史记录包含: 完成、全退、部分退
+		sqlStr = `SELECT id, customer_name, phone, status, created_at FROM orders WHERE status IN ('Completed', 'Refunded', 'Partial')`
+	} else {
+		sqlStr = `SELECT id, customer_name, phone, status, created_at FROM orders WHERE status = ?`
+		args = append(args, status)
 	}
 
-	sqlStr += ` ORDER BY id DESC LIMIT 50` // 限制50条，避免卡顿
+	if query != "" {
+		sqlStr += ` AND (customer_name LIKE ? OR phone LIKE ? OR CAST(id AS TEXT) LIKE ?)`
+		likeQuery := "%" + query + "%"
+		args = append(args, likeQuery, likeQuery, likeQuery)
+	}
+
+	sqlStr += ` ORDER BY id DESC LIMIT 50`
 
 	rows, err := r.DB.Query(sqlStr, args...)
 	if err != nil {
@@ -55,15 +63,30 @@ func (r *OrderRepo) GetOrders(status string, query string) ([]model.Order, error
 	var orders []model.Order
 	for rows.Next() {
 		var o model.Order
-		rows.Scan(&o.ID, &o.CustomerName, &o.Phone, &o.Status, &o.CreatedAt)
+		if err := rows.Scan(&o.ID, &o.CustomerName, &o.Phone, &o.Status, &o.CreatedAt); err != nil {
+			return nil, err
+		}
 		orders = append(orders, o)
 	}
 	return orders, nil
 }
 
 // GetItemsByOrderID 获取订单明细
+// GetItemsByOrderID 获取订单明细 (带进价)
+// GetItemsByOrderID 获取订单明细 (带进价和退款数)
 func (r *OrderRepo) GetItemsByOrderID(orderID int) ([]model.OrderItem, error) {
-	rows, err := r.DB.Query(`SELECT id, product_id, product_name, price, qty_ordered, qty_picked FROM order_items WHERE order_id = ?`, orderID)
+	// [修改] 增加了 oi.qty_refunded
+	query := `
+		SELECT 
+			oi.id, oi.order_id, oi.product_id, oi.product_name, 
+			oi.price, oi.qty_ordered, oi.qty_picked,
+			COALESCE(p.cost_price, 0),
+			COALESCE(oi.qty_refunded, 0)
+		FROM order_items oi
+		LEFT JOIN products p ON oi.product_id = p.id
+		WHERE oi.order_id = ?
+	`
+	rows, err := r.DB.Query(query, orderID)
 	if err != nil {
 		return nil, err
 	}
@@ -72,11 +95,13 @@ func (r *OrderRepo) GetItemsByOrderID(orderID int) ([]model.OrderItem, error) {
 	var items []model.OrderItem
 	for rows.Next() {
 		var i model.OrderItem
-		// 处理 product_id 可能为 NULL 的情况 (商品已删除)
-		var nullPid sql.NullInt64
-		err = rows.Scan(&i.ID, &nullPid, &i.ProductName, &i.Price, &i.QtyOrdered, &i.QtyPicked)
-		if err == nil {
-			i.ProductID = int(nullPid.Int64)
+		// [修改] Scan 增加了 &i.QtyRefunded
+		if err := rows.Scan(
+			&i.ID, &i.OrderID, &i.ProductID, &i.ProductName,
+			&i.Price, &i.QtyOrdered, &i.QtyPicked,
+			&i.CostPrice, &i.QtyRefunded,
+		); err != nil {
+			return nil, err
 		}
 		items = append(items, i)
 	}

@@ -3,68 +3,73 @@ package database
 import (
 	"database/sql"
 	"log"
+	"os"
 
-	_ "modernc.org/sqlite"
+	_ "modernc.org/sqlite" // 使用纯 Go 的 SQLite 驱动
 )
 
 func Init() *sql.DB {
-	db, err := sql.Open("sqlite", "./pos_data.db")
+	dbPath := "pos_data.db"
+
+	// 确保文件存在
+	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
+		file, err := os.Create(dbPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		file.Close()
+	}
+
+	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// 开启外键支持
-	_, err = db.Exec("PRAGMA foreign_keys = ON;")
-	if err != nil {
-		log.Fatal("无法开启外键支持:", err)
-	}
-
-	// --- 1. 商品表 (新增 category) ---
-	sqlStmt := `
+	// 1. 创建基础表结构
+	createTables := `
 	CREATE TABLE IF NOT EXISTS products (
-		id INTEGER PRIMARY KEY AUTOINCREMENT, 
-		barcode TEXT UNIQUE, 
-		name TEXT, 
-		category TEXT DEFAULT '未分类',  -- <--- 新增这一列
-		price REAL, 
-		cost_price REAL DEFAULT 0, 
-		stock INTEGER DEFAULT 0
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		barcode TEXT,
+		name TEXT,
+		category TEXT,
+		price REAL,
+		cost_price REAL DEFAULT 0,
+		stock INTEGER
 	);
-	
 	CREATE TABLE IF NOT EXISTS orders (
-		id INTEGER PRIMARY KEY AUTOINCREMENT, 
-		customer_name TEXT, 
-		phone TEXT, 
-		status TEXT DEFAULT 'Pending', 
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		customer_name TEXT,
+		phone TEXT,
+		status TEXT, 
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
-	
 	CREATE TABLE IF NOT EXISTS order_items (
-		id INTEGER PRIMARY KEY AUTOINCREMENT, 
-		order_id INTEGER, 
-		product_id INTEGER, 
-		product_name TEXT, 
-		price REAL, 
-		qty_ordered INTEGER, 
-		qty_picked INTEGER DEFAULT 0, 
-		FOREIGN KEY(order_id) REFERENCES orders(id), 
-		FOREIGN KEY(product_id) REFERENCES products(id)
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		order_id INTEGER,
+		product_id INTEGER,
+		product_name TEXT,
+		price REAL,
+		qty_ordered INTEGER,
+		qty_picked INTEGER,
+		FOREIGN KEY(order_id) REFERENCES orders(id)
 	);
 	`
-	_, err = db.Exec(sqlStmt)
-	if err != nil {
-		log.Fatal("创建表结构失败: ", err)
+	if _, err := db.Exec(createTables); err != nil {
+		log.Fatal(err)
 	}
 
-	// 初始化测试数据 (为了演示分类，我们预设两个不同分类的商品)
+	// 2. [关键升级] 检查并添加 qty_refunded 列 (部分退款支持)
+	// 这一步保证了旧数据也能兼容，不用删库
 	var count int
-	db.QueryRow("SELECT COUNT(*) FROM products").Scan(&count)
+	err = db.QueryRow("SELECT count(*) FROM pragma_table_info('order_items') WHERE name='qty_refunded'").Scan(&count)
 	if count == 0 {
-		// 注意：这里的 SQL 参数多了 category
-		db.Exec("INSERT INTO products (barcode, name, category, price, cost_price, stock) VALUES (?, ?, ?, ?, ?, ?)",
-			"123456", "可口可乐", "饮料", 3.00, 2.20, 100)
-		db.Exec("INSERT INTO products (barcode, name, category, price, cost_price, stock) VALUES (?, ?, ?, ?, ?, ?)",
-			"888888", "精品香蕉", "水果", 5.50, 3.00, 50)
+		log.Println("正在升级数据库: 添加 qty_refunded 列...")
+		_, err = db.Exec("ALTER TABLE order_items ADD COLUMN qty_refunded INTEGER DEFAULT 0")
+		if err != nil {
+			log.Fatal("升级数据库失败:", err)
+		}
 	}
+
+	log.Println("Database initialized successfully.")
 	return db
 }

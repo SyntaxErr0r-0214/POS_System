@@ -19,8 +19,10 @@ type OrderItem struct {
 	ProductID   int     `json:"product_id"`
 	ProductName string  `json:"product_name"`
 	Price       float64 `json:"price"`
+	CostPrice   float64 `json:"cost_price"`
 	QtyOrdered  int     `json:"qty_ordered"`
 	QtyPicked   int     `json:"qty_picked"`
+	QtyRefunded int     `json:"qty_refunded"`
 }
 
 // CheckoutRequest 结算请求

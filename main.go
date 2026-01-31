@@ -56,6 +56,8 @@ func main() {
 	http.HandleFunc("/api/book", oHandler.Book)
 	http.HandleFunc("/api/orders", oHandler.Search)
 	http.HandleFunc("/api/pickup", oHandler.Pickup)
+	// 👇 新增这一行
+	http.HandleFunc("/api/refund", oHandler.Refund)
 	// 👇 新增：采购清单接口
 	http.HandleFunc("/api/procurement", oHandler.GetProcurement)
 
@@ -67,6 +69,8 @@ func main() {
 	http.HandleFunc("/api/inventory/procure", pHandler.Procure)
 
 	http.HandleFunc("/api/report", rHandler.GetReport)
+	http.HandleFunc("/api/reprint", oHandler.Reprint) // 👈 新增这一行
+	http.HandleFunc("/api/refund/partial", oHandler.DoPartialRefund)
 
 	// 系统管理接口
 	http.HandleFunc("/api/system/backup", sysHandler.Backup)

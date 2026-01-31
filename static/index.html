@@ -57,7 +57,7 @@
         .search-bar input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15); }
         .search-icon { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; color: #9ca3af; pointer-events: none; }
 
-        /* 分类标签栏样式 (防止挤压) */
+        /* 分类标签栏样式 */
         .category-tabs { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 16px; scrollbar-width: thin; flex-shrink: 0; }
         .cat-btn { padding: 8px 16px; background: white; border: 1px solid #e5e7eb; border-radius: 20px; font-weight: 600; font-size: 14px; cursor: pointer; white-space: nowrap; transition: 0.2s; color: var(--text-sub); }
         .cat-btn.active { background: var(--primary); color: white; border-color: var(--primary); box-shadow: 0 2px 5px rgba(16, 185, 129, 0.2); }
@@ -66,19 +66,19 @@
         /* Cashier */
         .cashier-left { width: 420px; background: white; border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 5; box-shadow: 4px 0 15px rgba(0,0,0,0.02); }
         .cashier-right { flex: 1; padding: 24px; overflow-y: auto; background: var(--bg-body); display: flex; flex-direction: column; }
-        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 20px; padding-bottom: 20px; }
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 12px; padding-bottom: 20px; }
 
-        .product-card { background: white; border-radius: 16px; padding: 20px; cursor: pointer; transition: all 0.2s; border: 1px solid transparent; display: flex; flex-direction: column; justify-content: space-between; height: 150px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); position: relative; overflow: hidden; }
-        .product-card:hover { transform: translateY(-3px); box-shadow: 0 12px 20px -5px rgba(0,0,0,0.1); border-color: var(--primary); }
+        .product-card { background: white; border-radius: 10px; padding: 12px; cursor: pointer; transition: all 0.2s; border: 1px solid transparent; display: flex; flex-direction: column; justify-content: space-between; height: 100px; box-shadow: 0 2px 4px rgba(0,0,0,0.03); position: relative; overflow: hidden; }
+        .product-card:hover { transform: translateY(-3px); box-shadow: 0 8px 12px -5px rgba(0,0,0,0.1); border-color: var(--primary); }
         .product-card.add-new { border: 2px dashed var(--primary); background: #ecfdf5; justify-content: center; align-items: center; color: var(--primary); }
         .product-card.add-new:hover { background: #d1fae5; border-color: var(--primary-dark); }
 
-        .badge-procure { position: absolute; top: 10px; right: 10px; background: #fffbeb; color: #d97706; font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 800; border: 1px solid #fcd34d; }
-        .badge-out { position: absolute; top: 10px; right: 10px; background: #f3f4f6; color: #9ca3af; font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 800; }
+        .badge-procure { position: absolute; top: 6px; right: 6px; background: #fffbeb; color: #d97706; font-size: 10px; padding: 1px 4px; border-radius: 4px; font-weight: 800; border: 1px solid #fcd34d; }
+        .badge-out { position: absolute; top: 6px; right: 6px; background: #f3f4f6; color: #9ca3af; font-size: 10px; padding: 1px 4px; border-radius: 4px; font-weight: 800; }
 
-        .p-name { font-weight: 700; font-size: 17px; line-height: 1.4; color: var(--text-main); margin-bottom: 10px; }
-        .p-price { font-size: 22px; font-weight: 800; color: var(--primary); }
-        .p-stock { font-size: 13px; color: var(--text-sub); background: #f3f4f6; padding: 4px 8px; border-radius: 6px; font-weight: 600; }
+        .p-name { font-weight: 700; font-size: 14px; line-height: 1.3; color: var(--text-main); margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .p-price { font-size: 18px; font-weight: 800; color: var(--primary); }
+        .p-stock { font-size: 11px; color: var(--text-sub); background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
         .p-stock.low { color: var(--danger); background: #fef2f2; }
 
         .cart-item { padding: 16px 24px; border-bottom: 1px dashed var(--border); display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; background: white; }
@@ -94,6 +94,13 @@
         .order-card-item { padding: 20px; margin-bottom: 16px; background: white; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
         .order-card-item:hover { transform: translateY(-2px); box-shadow: 0 8px 12px rgba(0,0,0,0.05); border-color: var(--primary); }
         .order-card-item.selected { background: #ecfdf5; border: 2px solid var(--primary); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15); }
+
+        .order-card-item.refunded { background: #f3f4f6; border-color: #e5e7eb; color: #9ca3af; opacity: 0.8; }
+        .order-card-item.refunded:hover { transform: none; box-shadow: none; }
+
+        .refund-badge { background: #fee2e2; color: #dc2626; font-size: 12px; padding: 2px 6px; border-radius: 4px; font-weight: 700; display: inline-block; margin-left: 8px; }
+        .partial-badge { background: #fff7ed; color: #c2410c; font-size: 12px; padding: 2px 6px; border-radius: 4px; font-weight: 700; display: inline-block; margin-left: 8px; border: 1px solid #fdba74; }
+
         .order-filter-tabs { display: flex; gap: 10px; padding: 16px 20px 0 20px; background: white; border-bottom: 1px solid var(--border); }
         .filter-tab { padding: 12px 24px; font-weight: 700; color: var(--text-sub); cursor: pointer; border-bottom: 3px solid transparent; transition: 0.2s; }
         .filter-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
@@ -124,6 +131,7 @@
         .form-group input:focus { border-color: var(--primary); background: white; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1); }
         .modal-footer { display: flex; justify-content: flex-end; gap: 12px; margin-top: 32px; }
         .procure-input { width: 80px; padding: 8px; border: 1px solid var(--border); border-radius: 6px; text-align: center; }
+        .refund-input { width: 60px; padding: 6px; border: 1px solid var(--border); border-radius: 6px; text-align: center; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -172,11 +180,27 @@
     <div style="flex:1; background:#f9fafb; padding:40px; display:flex; justify-content:center; overflow-y:auto;">
         <div id="order-detail-card" style="display:none; width:100%; max-width:700px; background:white; border-radius:20px; box-shadow:var(--shadow); padding:40px; height:fit-content; margin-bottom:40px;">
             <div style="display:flex; justify-content:space-between; margin-bottom:32px; padding-bottom:24px; border-bottom:1px solid var(--border);">
-                <div><h2 style="margin:0; font-size:28px; font-weight:800;" id="detail-name"></h2><div style="color:var(--text-sub); margin-top:6px;" id="detail-phone"></div></div>
+                <div>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <h2 style="margin:0; font-size:28px; font-weight:800;" id="detail-name"></h2>
+                        <span id="refunded-tag" style="display:none;background:#fee2e2;color:#dc2626;font-size:12px;padding:2px 8px;border-radius:4px;font-weight:700;">已退款</span>
+                        <span id="partial-tag" style="display:none;background:#fff7ed;color:#c2410c;font-size:12px;padding:2px 8px;border-radius:4px;font-weight:700;border:1px solid #fdba74;">部分退款</span>
+                    </div>
+                    <div style="color:var(--text-sub); margin-top:6px;" id="detail-phone"></div>
+                </div>
                 <div style="text-align:right;"><div style="background:var(--primary); color:white; padding:6px 12px; border-radius:8px; font-weight:700;" id="detail-id"></div><div style="color:var(--text-sub); margin-top:8px;" id="detail-time"></div></div>
             </div>
             <div style="overflow-y:auto;"><div id="section-unpicked"></div><div id="section-picked"></div></div>
-            <div id="pickup-action-bar" style="margin-top:32px; padding-top:24px; border-top:1px solid var(--border); text-align:right;"><button class="btn btn-primary" style="padding:14px 28px;" onclick="submitPickup()">确认提货</button></div>
+            <div id="pickup-action-bar" style="margin-top:32px; padding-top:24px; border-top:1px solid var(--border); text-align:right;">
+                <button class="btn btn-primary" style="padding:14px 28px;" onclick="submitPickup()">确认提货</button>
+            </div>
+            <div id="refund-action-bar" style="margin-top:32px; padding-top:24px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:12px; display:none;">
+                <button class="btn btn-outline" style="padding:14px 28px; color:#c2410c; border-color:#fdba74;" onclick="openPartialRefund()">↩️ 部分退款</button>
+                <button class="btn btn-danger-ghost" style="padding:14px 28px;" onclick="doRefund()">⚠️ 全单退款</button>
+            </div>
+            <div style="margin-top:20px; padding-top:20px; border-top:1px dashed var(--border); text-align:right;">
+                <button class="btn btn-outline" onclick="doReprint()">🖨️ 补打小票</button>
+            </div>
         </div>
         <div id="order-empty-tip" style="color:var(--text-sub); font-weight:600; font-size:18px; display:flex; align-items:center;">👈 请选择一个订单</div>
     </div>
@@ -197,7 +221,6 @@
             </div>
         </div>
         <div class="category-tabs" id="inventory-cats" style="margin-bottom:20px;"></div>
-
         <div style="flex:1; overflow-y:auto;">
             <table class="data-table"><thead><tr style="background:#f9fafb; border-bottom:2px solid var(--border);"><th style="width:60px;">ID</th><th>分类</th><th>条码</th><th>名称</th><th>进价</th><th>售价</th><th>库存</th><th>毛利</th><th style="text-align:right;">操作</th></tr></thead><tbody id="inventory-list"></tbody></table>
         </div>
@@ -247,24 +270,26 @@
         <h3>🚚 采购入库单 <span style="font-size:14px; color:var(--text-sub); font-weight:400;">(请勾选已买回的商品并完善价格)</span></h3>
         <div style="max-height:500px; overflow-y:auto; margin-top:20px;">
             <table class="data-table">
-                <thead>
-                <tr style="background:#f9fafb;">
-                    <th style="width:40px;"><input type="checkbox" id="check-all" onclick="toggleAllProcure(this)"></th>
-                    <th style="padding:12px;">商品名称</th>
-                    <th style="padding:12px;">当前库存</th>
-                    <th style="padding:12px;">订单需求</th>
-                    <th style="padding:12px;color:#9ca3af;">建议采购</th>
-                    <th style="padding:12px;color:var(--primary);">实际入库</th>
-                    <th style="padding:12px;">进价(Cost)</th>
-                    <th style="padding:12px;">售价(Price)</th>
-                </tr>
-                </thead>
+                <thead><tr style="background:#f9fafb;"><th style="width:40px;"><input type="checkbox" id="check-all" onclick="toggleAllProcure(this)"></th><th style="padding:12px;">商品名称</th><th style="padding:12px;">当前库存</th><th style="padding:12px;">订单需求</th><th style="padding:12px;color:#9ca3af;">建议采购</th><th style="padding:12px;color:var(--primary);">实际入库</th><th style="padding:12px;">进价(Cost)</th><th style="padding:12px;">售价(Price)</th></tr></thead>
                 <tbody id="procurement-list"></tbody>
             </table>
         </div>
+        <div class="modal-footer"><button class="btn btn-outline" onclick="document.getElementById('procurement-modal').style.display='none'">取消</button><button class="btn btn-primary" onclick="submitProcurement()">✅ 完成采购并入库</button></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="partial-refund-modal">
+    <div class="modal" style="width:600px;">
+        <h3>↩️ 部分退款 <span style="font-size:14px; color:var(--text-sub); font-weight:400;">(请输入要退货的数量)</span></h3>
+        <div style="max-height:400px; overflow-y:auto; margin-top:20px;">
+            <table class="data-table">
+                <thead><tr style="background:#f9fafb;"><th>商品</th><th>已购</th><th>已退</th><th>本次退货</th></tr></thead>
+                <tbody id="partial-refund-list"></tbody>
+            </table>
+        </div>
         <div class="modal-footer">
-            <button class="btn btn-outline" onclick="document.getElementById('procurement-modal').style.display='none'">取消</button>
-            <button class="btn btn-primary" onclick="submitProcurement()">✅ 完成采购并入库</button>
+            <button class="btn btn-outline" onclick="document.getElementById('partial-refund-modal').style.display='none'">取消</button>
+            <button class="btn btn-primary" onclick="submitPartialRefund()">确认退款</button>
         </div>
     </div>
 </div>
@@ -280,14 +305,8 @@
 <div class="modal-overlay" id="temp-product-modal" style="z-index: 2000;">
     <div class="modal" style="width:400px;">
         <h3>✨ 新增临时商品</h3>
-        <div class="form-group" style="margin-top:20px;">
-            <label>商品名称</label>
-            <input id="temp-prod-name" placeholder="例如：特产核桃 5斤">
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-outline" onclick="document.getElementById('temp-product-modal').style.display='none'">取消</button>
-            <button class="btn btn-primary" onclick="confirmAddTemp()">确定添加</button>
-        </div>
+        <div class="form-group" style="margin-top:20px;"><label>商品名称</label><input id="temp-prod-name" placeholder="例如：特产核桃 5斤"></div>
+        <div class="modal-footer"><button class="btn btn-outline" onclick="document.getElementById('temp-product-modal').style.display='none'">取消</button><button class="btn btn-primary" onclick="confirmAddTemp()">确定添加</button></div>
     </div>
 </div>
 
@@ -352,7 +371,7 @@
 
     function renderProductGrid(list) {
         const grid = document.getElementById('product-grid');
-        const addCard = `<div class="product-card add-new" onclick="document.getElementById('temp-product-modal').style.display='flex';setTimeout(()=>document.getElementById('temp-prod-name').focus(),100)"><svg class="icon-svg" style="width:40px;height:40px;" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg><div style="font-weight:700;margin-top:8px;">新增临时商品</div></div>`;
+        const addCard = `<div class="product-card add-new" onclick="document.getElementById('temp-product-modal').style.display='flex';setTimeout(()=>document.getElementById('temp-prod-name').focus(),100)"><svg class="icon-svg" style="width:28px;height:28px;" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg><div style="font-weight:700;margin-top:8px;font-size:13px;">新增临时商品</div></div>`;
 
         let filtered = list;
         if (currentCategory !== '全部') {
@@ -378,11 +397,9 @@
         grid.innerHTML = addCard + items;
     }
 
-    // --- 核心修复：添加临时商品 -> 自动切换到'临时'分类 -> 自动加车 ---
     function confirmAddTemp() {
         const name = document.getElementById('temp-prod-name').value;
         if(!name) return showToast("请输入名称", "error");
-        // 关键点：临时商品默认分类为 '临时'
         const p = { barcode: 'T'+Date.now().toString().slice(-6), name: name, category: '临时', cost_price: 0, price: 0, stock: 0 };
 
         fetch('/api/inventory/save', {method:'POST', body:JSON.stringify(p)}).then(r=>r.json()).then(res => {
@@ -391,14 +408,9 @@
                 document.getElementById('temp-product-modal').style.display='none';
                 document.getElementById('temp-prod-name').value = '';
 
-                // 1. 重新获取商品列表
                 fetch('/api/inventory/list').then(r=>r.json()).then(list => {
                     allProducts = list;
-
-                    // 2. 强制切换到 '临时' 分类，让用户看到新商品
                     selectCategory('临时', 'cashier-cats');
-
-                    // 3. 找到刚才创建的商品，自动加入购物车
                     const newProd = list.find(x => x.name === name && x.price === 0 && x.category === '临时');
                     if(newProd) {
                         addToCart(newProd);
@@ -441,7 +453,18 @@
         currentOrderTab=s;
         document.querySelectorAll('.filter-tab').forEach(e=>e.classList.remove('active'));
         b.classList.add('active');
-        document.getElementById('pickup-action-bar').style.display=s==='Completed'?'none':'block';
+
+        // 隐藏所有动作栏
+        document.getElementById('pickup-action-bar').style.display='none';
+        document.getElementById('refund-action-bar').style.display='none';
+
+        // 根据tab显示不同
+        if (s === 'Pending') {
+            document.getElementById('pickup-action-bar').style.display='block';
+        } else {
+            // Completed 状态
+        }
+
         currentOrder = null;
         document.getElementById('order-detail-card').style.display='none';
         document.getElementById('order-empty-tip').style.display='flex';
@@ -452,12 +475,127 @@
         const q=document.getElementById('order-search').value;
         fetch(`/api/orders?status=${currentOrderTab}&q=${q}&_t=${Date.now()}`).then(r=>r.json()).then(l=>{
             if(!l) l = [];
-            document.getElementById('order-list').innerHTML=l.map((o,i)=>`<div class="order-card-item" onclick="selOrd(${i})" id="ord-${i}"><div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="color:var(--primary);font-weight:700;">#${o.id}</span><span style="color:#999;font-size:12px;">${o.created_at.substring(5,16)}</span></div><div style="font-weight:700;">${o.customer_name}</div><div style="color:#666;font-size:13px;">${o.phone}</div></div>`).join('');
+            document.getElementById('order-list').innerHTML=l.map((o,i)=>{
+                // 状态标签处理
+                const isRefunded = o.status === 'Refunded';
+                const isPartial = o.status === 'Partial';
+
+                let cardClass = '';
+                let badge = '';
+
+                if (isRefunded) {
+                    cardClass = 'refunded';
+                    badge = '<span class="refund-badge">已退款</span>';
+                } else if (isPartial) {
+                    badge = '<span class="partial-badge">部分退款</span>';
+                }
+
+                return `<div class="order-card-item ${cardClass}" onclick="selOrd(${i})" id="ord-${i}">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                        <span style="color:var(--primary);font-weight:700;">#${o.id}${badge}</span>
+                        <span style="color:#999;font-size:12px;">${o.created_at.substring(5,16)}</span>
+                    </div>
+                    <div style="font-weight:700;">${o.customer_name}</div>
+                    <div style="color:#666;font-size:13px;">${o.phone}</div>
+                </div>`
+            }).join('');
             window.cachedOrders=l;
         });
     }
 
-    function selOrd(i){ const o=window.cachedOrders[i]; currentOrder=o; document.querySelectorAll('.order-card-item').forEach(e=>e.classList.remove('selected')); document.getElementById(`ord-${i}`).classList.add('selected'); document.getElementById('order-empty-tip').style.display='none'; document.getElementById('order-detail-card').style.display='block'; document.getElementById('detail-name').innerText=o.customer_name; document.getElementById('detail-phone').innerText=o.phone; document.getElementById('detail-id').innerText='#'+o.id; document.getElementById('detail-time').innerText=o.created_at; const un=o.items.filter(i=>i.qty_ordered>i.qty_picked); const pi=o.items.filter(i=>i.qty_picked>0); document.getElementById('section-unpicked').innerHTML=un.length>0?`<div style="font-weight:800;margin:32px 0 12px 0;color:#var(--primary);">📦 待提取</div>`+un.map(i=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:16px;border:1px solid var(--border);border-radius:12px;margin-bottom:12px;"><div><div style="font-weight:700;">${i.product_name}</div><div style="font-size:13px;color:#666;">订${i.qty_ordered}/取${i.qty_picked}</div></div><div style="display:flex;align-items:center;gap:12px;"><span style="color:var(--danger);font-weight:700;">剩 ${i.qty_ordered-i.qty_picked}</span>${currentOrderTab==='Pending'?`<div class="qty-control"><div class="qty-btn" onclick="upPick(${i.id},-1)">-</div><input class="qty-val pickup-input" id="pk-${i.id}" value="0" data-id="${i.id}" data-max="${i.qty_ordered-i.qty_picked}" readonly><div class="qty-btn" onclick="upPick(${i.id},1)">+</div></div>`:''}</div></div>`).join(''):''; document.getElementById('section-picked').innerHTML=pi.length>0?`<div style="font-weight:800;margin:32px 0 12px 0;color:#666;">✅ 已提取</div>`+pi.map(i=>`<div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px dashed #eee;color:#999;font-size:14px;"><span>${i.product_name}</span><span>已取 x${i.qty_picked}</span></div>`).join(''):''; }
+    function selOrd(i){
+        const o = window.cachedOrders[i];
+        currentOrder = o;
+        document.querySelectorAll('.order-card-item').forEach(e => e.classList.remove('selected'));
+        document.getElementById(`ord-${i}`).classList.add('selected');
+        document.getElementById('order-empty-tip').style.display = 'none';
+        document.getElementById('order-detail-card').style.display = 'block';
+
+        document.getElementById('detail-name').innerText = o.customer_name;
+        document.getElementById('detail-phone').innerText = o.phone;
+        document.getElementById('detail-id').innerText = '#' + o.id;
+        document.getElementById('detail-time').innerText = o.created_at;
+
+        // 计算整单利润 (减去已退款的)
+        let totalProfit = 0;
+        let totalAmount = 0;
+        o.items.forEach(item => {
+            // [新增] 兼容 qty_refunded
+            const realQty = item.qty_ordered - (item.qty_refunded || 0);
+            if (realQty > 0) {
+                const amount = item.price * realQty;
+                let cost = item.cost_price;
+                if (item.price === 0) cost = 0;
+                const profit = (item.price - cost) * realQty;
+                totalAmount += amount;
+                totalProfit += profit;
+            }
+        });
+
+        // 利润标签
+        const nameContainer = document.getElementById('detail-name').parentNode;
+        const oldProfit = document.getElementById('profit-tag');
+        if(oldProfit) oldProfit.remove();
+        const profitTag = document.createElement('span');
+        profitTag.id = 'profit-tag';
+        profitTag.style.cssText = 'background:#ecfdf5;color:#059669;font-size:13px;padding:4px 10px;border-radius:6px;font-weight:700;margin-left:12px;border:1px solid #a7f3d0;';
+        profitTag.innerHTML = `💰 利润: ¥${totalProfit.toFixed(2)}`;
+        document.getElementById('detail-name').after(profitTag);
+
+        // 状态标签
+        const isRefunded = o.status === 'Refunded';
+        const isPartial = o.status === 'Partial';
+        document.getElementById('refunded-tag').style.display = isRefunded ? 'inline-block' : 'none';
+        document.getElementById('partial-tag').style.display = isPartial ? 'inline-block' : 'none';
+
+        // 按钮显示
+        if (currentOrderTab === 'Completed') {
+            document.getElementById('refund-action-bar').style.display = isRefunded ? 'none' : 'flex';
+        } else {
+            document.getElementById('refund-action-bar').style.display = 'none';
+        }
+
+        const un = o.items.filter(i => i.qty_ordered > i.qty_picked);
+        const pi = o.items.filter(i => i.qty_picked > 0);
+
+        const renderItem = (i, isPending) => {
+            // [修改] 显示退款信息
+            const refundInfo = i.qty_refunded > 0 ? `<span style="color:#c2410c;font-weight:bold;margin-left:8px;">(退 ${i.qty_refunded})</span>` : '';
+            const subtotal = i.price * (i.qty_ordered - (i.qty_refunded||0));
+
+            return `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:16px;border:1px solid var(--border);border-radius:12px;margin-bottom:12px;background:#fff;">
+                <div style="flex:1;">
+                    <div style="font-weight:700;font-size:15px;margin-bottom:4px;">${i.product_name} ${refundInfo}</div>
+                    <div style="font-size:12px;color:#6b7280;display:flex;gap:12px;">
+                        <span>单价: <b style="color:#333">¥${i.price}</b></span>
+                        <span>有效总额: <b style="color:var(--primary)">¥${subtotal.toFixed(2)}</b></span>
+                    </div>
+                </div>
+                <div style="text-align:right;">
+                     <div style="font-size:13px;color:#666;margin-bottom:6px;">订 <b>${i.qty_ordered}</b> / 取 <b>${i.qty_picked}</b></div>
+                     ${isPending ? `
+                        <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;">
+                            <span style="color:var(--danger);font-weight:700;font-size:12px;">剩 ${i.qty_ordered - i.qty_picked}</span>
+                            <div class="qty-control" style="transform:scale(0.9);transform-origin:right center;">
+                                <div class="qty-btn" onclick="upPick(${i.id},-1)">-</div>
+                                <input class="qty-val pickup-input" id="pk-${i.id}" value="0" data-id="${i.id}" data-max="${i.qty_ordered - i.qty_picked}" readonly>
+                                <div class="qty-btn" onclick="upPick(${i.id},1)">+</div>
+                            </div>
+                        </div>
+                     ` : `<div style="font-size:12px;color:#10b981;font-weight:700;">已取完</div>`}
+                </div>
+            </div>`;
+        };
+
+        document.getElementById('section-unpicked').innerHTML = un.length > 0
+            ? `<div style="font-weight:800;margin:24px 0 12px 0;color:var(--primary);">📦 待提取</div>` + un.map(i => renderItem(i, currentOrderTab === 'Pending')).join('')
+            : '';
+
+        document.getElementById('section-picked').innerHTML = pi.length > 0
+            ? `<div style="font-weight:800;margin:24px 0 12px 0;color:#6b7280;">✅ 已提取</div>` + pi.map(i => renderItem(i, false)).join('')
+            : '';
+    }
     function upPick(id,d){ const el=document.getElementById(`pk-${id}`); let v=parseInt(el.value)+d; const m=parseInt(el.dataset.max); if(v<0)v=0; if(v>m)v=m; el.value=v; }
 
     function submitPickup() {
@@ -478,6 +616,110 @@
                     showToast(msg, "error");
                 }
             });
+    }
+
+    // [核心修改] 退款功能
+    function doRefund() {
+        if (!currentOrder) return;
+        showConfirm(`⚠️ 确定要退款订单 #${currentOrder.id} 吗？\n所有商品将自动加回库存。`, () => {
+            fetch(`/api/refund?id=${currentOrder.id}`, {method: 'POST'})
+                .then(async r => {
+                    if(r.ok) {
+                        showToast('✅ 退款成功，库存已恢复');
+                        searchOrders();
+                        setTimeout(() => {
+                            const idx = window.cachedOrders.findIndex(o => o.id === currentOrder.id);
+                            if(idx >= 0) selOrd(idx);
+                        }, 100);
+                    } else {
+                        const msg = await r.text();
+                        showToast("退款失败: " + msg, 'error');
+                    }
+                })
+                .catch(e => { showToast("网络错误: " + e.message, 'error'); });
+        });
+    }
+
+    // [新增] 补打小票功能
+    function doReprint() {
+        if (!currentOrder) return;
+        showToast("正在发送打印指令...", "success");
+        fetch(`/api/reprint?id=${currentOrder.id}`, {method: 'POST'})
+            .then(async r => {
+                if(r.ok) {
+                    setTimeout(() => showToast("✅ 打印机已接收任务"), 500);
+                } else {
+                    showToast("打印失败: " + await r.text(), "error");
+                }
+            })
+            .catch(e => showToast("网络错误", "error"));
+    }
+
+    // [新增] 部分退款相关逻辑
+    function openPartialRefund() {
+        if (!currentOrder) return;
+
+        // 渲染可退商品列表 (只显示已提取且未完全退款的)
+        // 逻辑：可退 = qty_picked - qty_refunded
+        const validItems = currentOrder.items.filter(i => (i.qty_picked - (i.qty_refunded||0)) > 0);
+
+        if (validItems.length === 0) {
+            return showToast("该订单没有可退的商品", "error");
+        }
+
+        const tbody = document.getElementById('partial-refund-list');
+        tbody.innerHTML = validItems.map(i => {
+            const maxRefund = i.qty_picked - (i.qty_refunded||0);
+            return `
+            <tr>
+                <td style="padding:12px;">${i.product_name}</td>
+                <td>${i.qty_picked}</td>
+                <td>${i.qty_refunded||0}</td>
+                <td>
+                    <input type="number" class="refund-input" id="rf-${i.id}"
+                           min="0" max="${maxRefund}" placeholder="0"
+                           data-id="${i.id}" data-max="${maxRefund}">
+                    <span style="font-size:12px;color:#999;">(最多${maxRefund})</span>
+                </td>
+            </tr>`;
+        }).join('');
+
+        document.getElementById('partial-refund-modal').style.display = 'flex';
+    }
+
+    function submitPartialRefund() {
+        const items = [];
+        document.querySelectorAll('.refund-input').forEach(input => {
+            const qty = parseInt(input.value);
+            const max = parseInt(input.dataset.max);
+            const id = parseInt(input.dataset.id);
+            if (qty > 0) {
+                if (qty > max) {
+                    showToast("退款数量超出限制", "error");
+                    return;
+                }
+                items.push({ item_id: id, qty: qty });
+            }
+        });
+
+        if (items.length === 0) return showToast("请输入退款数量", "error");
+
+        fetch('/api/refund/partial', {
+            method: 'POST',
+            body: JSON.stringify({ order_id: currentOrder.id, items: items })
+        }).then(async r => {
+            if (r.ok) {
+                showToast("✅ 部分退款成功");
+                document.getElementById('partial-refund-modal').style.display = 'none';
+                searchOrders();
+                setTimeout(() => {
+                    const idx = window.cachedOrders.findIndex(o => o.id === currentOrder.id);
+                    if(idx >= 0) selOrd(idx);
+                }, 100);
+            } else {
+                showToast("失败: " + await r.text(), "error");
+            }
+        });
     }
 
     // --- Procurement ---
@@ -541,8 +783,34 @@
                 price: parseFloat(priceVal)
             });
         }
+
         fetch('/api/inventory/procure', { method: 'POST', body: JSON.stringify(selected) }).then(r => {
-            if(r.ok) { showToast("✅ 入库成功！"); document.getElementById('procurement-modal').style.display='none'; loadInventory(); loadProductGrid(); } else { showToast("入库失败", "error"); }
+            if(r.ok) {
+                showToast("✅ 入库成功！");
+                document.getElementById('procurement-modal').style.display='none';
+
+                // 核心修复：入库后，自动同步最新价格到购物车
+                fetch('/api/inventory/list').then(r=>r.json()).then(list => {
+                    allProducts = list;
+                    renderCategories(list);
+                    renderProductGrid(list);
+                    let updatedCount = 0;
+                    cart.forEach(cartItem => {
+                        const freshItem = list.find(p => p.id === cartItem.id);
+                        if (freshItem && cartItem.price === 0 && freshItem.price > 0) {
+                            cartItem.price = freshItem.price;
+                            cartItem.cost_price = freshItem.cost_price;
+                            updatedCount++;
+                        }
+                    });
+                    if (updatedCount > 0) {
+                        renderCart();
+                        showToast(`已自动同步 ${updatedCount} 个临时商品的最新价格`, "success");
+                    }
+                    loadInventory();
+                });
+
+            } else { showToast("入库失败", "error"); }
         });
     }
 
