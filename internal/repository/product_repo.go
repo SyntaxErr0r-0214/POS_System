@@ -47,7 +47,9 @@ func (r *ProductRepo) GetAll() ([]model.Product, error) {
 	}
 	defer rows.Close()
 
-	var products []model.Product
+	// [修复] 显式初始化为空切片，确保返回 [] 而不是 null
+	products := make([]model.Product, 0)
+
 	for rows.Next() {
 		var p model.Product
 		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock)
@@ -65,7 +67,9 @@ func (r *ProductRepo) SearchInventory(query string) ([]model.Product, error) {
 	}
 	defer rows.Close()
 
-	var list []model.Product
+	// [修复] 显式初始化为空切片
+	list := make([]model.Product, 0)
+
 	for rows.Next() {
 		var p model.Product
 		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock)
@@ -83,7 +87,9 @@ func (r *ProductRepo) Search(query string) ([]model.Product, error) {
 	}
 	defer rows.Close()
 
-	var list []model.Product
+	// [修复] 显式初始化为空切片
+	list := make([]model.Product, 0)
+
 	for rows.Next() {
 		var p model.Product
 		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock)

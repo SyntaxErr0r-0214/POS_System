@@ -40,16 +40,20 @@ func (h *OrderHandler) Book(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("预订成功"))
 }
 
-// Search 搜索订单
+// Search 搜索订单 (核心改动在这里！)
 func (h *OrderHandler) Search(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
 	status := r.URL.Query().Get("status")
+	dateStr := r.URL.Query().Get("date") // [新增] 获取日期参数
 
 	if status == "" {
 		status = "Pending"
 	}
 
-	orders, err := h.Service.OrderRepo.GetOrders(status, q)
+	// [关键修改] 这里必须传 3 个参数，否则会报错！
+	// 旧代码是: GetOrders(status, q)
+	// 新代码是: GetOrders(status, q, dateStr)
+	orders, err := h.Service.OrderRepo.GetOrders(status, q, dateStr)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -126,7 +130,7 @@ func (h *OrderHandler) Reprint(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("补打指令已发送"))
 }
 
-// DoPartialRefund 部分退款接口 (这就是你缺失的那个方法！)
+// DoPartialRefund 部分退款接口
 func (h *OrderHandler) DoPartialRefund(w http.ResponseWriter, r *http.Request) {
 	var req service.PartialRefundRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

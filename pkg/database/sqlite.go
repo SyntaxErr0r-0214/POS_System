@@ -58,8 +58,7 @@ func Init() *sql.DB {
 		log.Fatal(err)
 	}
 
-	// 2. [关键升级] 检查并添加 qty_refunded 列 (部分退款支持)
-	// 这一步保证了旧数据也能兼容，不用删库
+	// 2. 检查并添加 qty_refunded 列 (部分退款支持)
 	var count int
 	err = db.QueryRow("SELECT count(*) FROM pragma_table_info('order_items') WHERE name='qty_refunded'").Scan(&count)
 	if count == 0 {
@@ -67,6 +66,18 @@ func Init() *sql.DB {
 		_, err = db.Exec("ALTER TABLE order_items ADD COLUMN qty_refunded INTEGER DEFAULT 0")
 		if err != nil {
 			log.Fatal("升级数据库失败:", err)
+		}
+	}
+
+	// 3. [新增] 检查并添加 daily_seq 列 (每日流水号)
+	var countSeq int
+	err = db.QueryRow("SELECT count(*) FROM pragma_table_info('orders') WHERE name='daily_seq'").Scan(&countSeq)
+	if countSeq == 0 {
+		log.Println("正在升级数据库: 添加 daily_seq 列...")
+		// 旧数据默认设为 0
+		_, err = db.Exec("ALTER TABLE orders ADD COLUMN daily_seq INTEGER DEFAULT 0")
+		if err != nil {
+			log.Fatal("升级数据库(daily_seq)失败:", err)
 		}
 	}
 

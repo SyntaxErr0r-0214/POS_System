@@ -5,6 +5,7 @@ import "time"
 // Order 订单主表
 type Order struct {
 	ID           int         `json:"id"`
+	DailySeq     int         `json:"daily_seq"`
 	CustomerName string      `json:"customer_name"`
 	Phone        string      `json:"phone"`
 	Status       string      `json:"status"`

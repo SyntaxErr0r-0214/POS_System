@@ -14,9 +14,27 @@ func NewOrderRepo(db *sql.DB) *OrderRepo {
 	return &OrderRepo{DB: db}
 }
 
-// CreateOrder 创建主订单
+// CreateOrder 创建主订单 (自动计算每日流水号)
 func (r *OrderRepo) CreateOrder(tx *sql.Tx, customer string, phone string, status string) (int64, error) {
-	res, err := tx.Exec("INSERT INTO orders (customer_name, phone, status) VALUES (?, ?, ?)", customer, phone, status)
+	// 1. 计算今日流水号
+	// 逻辑：查找今天(00:00:00以后)最大的 daily_seq，然后 +1
+	now := time.Now()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local).Format("2006-01-02 15:04:05")
+
+	var maxSeq sql.NullInt64
+	// 查询今天已经存在的最大序号
+	err := tx.QueryRow("SELECT MAX(daily_seq) FROM orders WHERE created_at >= ?", todayStart).Scan(&maxSeq)
+	if err != nil {
+		return 0, err
+	}
+
+	newSeq := 1
+	if maxSeq.Valid {
+		newSeq = int(maxSeq.Int64) + 1
+	}
+
+	// 2. 插入订单 (带上 daily_seq)
+	res, err := tx.Exec("INSERT INTO orders (customer_name, phone, status, daily_seq) VALUES (?, ?, ?, ?)", customer, phone, status, newSeq)
 	if err != nil {
 		return 0, err
 	}
@@ -30,29 +48,49 @@ func (r *OrderRepo) CreateOrderItem(tx *sql.Tx, item model.OrderItem) error {
 	return err
 }
 
-// GetOrders 通用订单查询 (核心升级)
-// status: 'Pending' 或 'Completed'
-// query: 搜索关键词 (ID, 姓名, 电话)
 // GetOrders 获取订单列表
-func (r *OrderRepo) GetOrders(status string, query string) ([]model.Order, error) {
+// status: 状态
+// query: 关键词
+// dateFilter: 日期 "YYYY-MM-DD" (空字符串表示不限日期)
+func (r *OrderRepo) GetOrders(status string, query string, dateFilter string) ([]model.Order, error) {
 	var sqlStr string
 	var args []interface{}
 
+	// 基础 SQL，包含 daily_seq
+	sqlStr = `SELECT id, daily_seq, customer_name, phone, status, created_at FROM orders WHERE 1=1`
+
+	// 1. 状态筛选
 	if status == "Completed" {
-		// [修改] 历史记录包含: 完成、全退、部分退
-		sqlStr = `SELECT id, customer_name, phone, status, created_at FROM orders WHERE status IN ('Completed', 'Refunded', 'Partial')`
+		sqlStr += ` AND status IN ('Completed', 'Refunded', 'Partial')`
 	} else {
-		sqlStr = `SELECT id, customer_name, phone, status, created_at FROM orders WHERE status = ?`
+		sqlStr += ` AND status = ?`
 		args = append(args, status)
 	}
 
+	// 2. 日期筛选 (新增)
+	if dateFilter != "" {
+		// SQLite 字符串匹配 "YYYY-MM-DD%"
+		sqlStr += ` AND created_at LIKE ?`
+		args = append(args, dateFilter+"%")
+	}
+
+	// 3. 关键词搜索
 	if query != "" {
 		sqlStr += ` AND (customer_name LIKE ? OR phone LIKE ? OR CAST(id AS TEXT) LIKE ?)`
 		likeQuery := "%" + query + "%"
 		args = append(args, likeQuery, likeQuery, likeQuery)
 	}
 
-	sqlStr += ` ORDER BY id DESC LIMIT 50`
+	// 4. 排序
+	sqlStr += ` ORDER BY id DESC`
+
+	// 5. 数量限制逻辑 (关键修改)
+	// 如果是 Pending (进行中)，不加 LIMIT，显示全部
+	// 如果是 Completed (历史)，且没有选日期，也没有搜关键词，才限制 100 条防止卡顿
+	// 如果选了日期，说明用户想看那天的全部，也不限制
+	if status == "Completed" && dateFilter == "" && query == "" {
+		sqlStr += ` LIMIT 100`
+	}
 
 	rows, err := r.DB.Query(sqlStr, args...)
 	if err != nil {
@@ -63,19 +101,19 @@ func (r *OrderRepo) GetOrders(status string, query string) ([]model.Order, error
 	var orders []model.Order
 	for rows.Next() {
 		var o model.Order
-		if err := rows.Scan(&o.ID, &o.CustomerName, &o.Phone, &o.Status, &o.CreatedAt); err != nil {
+		var dailySeq sql.NullInt64 // 处理旧数据可能为 NULL 的情况
+
+		if err := rows.Scan(&o.ID, &dailySeq, &o.CustomerName, &o.Phone, &o.Status, &o.CreatedAt); err != nil {
 			return nil, err
 		}
+		o.DailySeq = int(dailySeq.Int64)
 		orders = append(orders, o)
 	}
 	return orders, nil
 }
 
-// GetItemsByOrderID 获取订单明细
-// GetItemsByOrderID 获取订单明细 (带进价)
 // GetItemsByOrderID 获取订单明细 (带进价和退款数)
 func (r *OrderRepo) GetItemsByOrderID(orderID int) ([]model.OrderItem, error) {
-	// [修改] 增加了 oi.qty_refunded
 	query := `
 		SELECT 
 			oi.id, oi.order_id, oi.product_id, oi.product_name, 
@@ -95,7 +133,6 @@ func (r *OrderRepo) GetItemsByOrderID(orderID int) ([]model.OrderItem, error) {
 	var items []model.OrderItem
 	for rows.Next() {
 		var i model.OrderItem
-		// [修改] Scan 增加了 &i.QtyRefunded
 		if err := rows.Scan(
 			&i.ID, &i.OrderID, &i.ProductID, &i.ProductName,
 			&i.Price, &i.QtyOrdered, &i.QtyPicked,
@@ -127,12 +164,10 @@ func (r *OrderRepo) UpdatePickedQty(tx *sql.Tx, itemID int, qty int) error {
 // CheckOrderComplete 检查订单是否全部取完
 func (r *OrderRepo) CheckOrderComplete(tx *sql.Tx, orderID int) (bool, error) {
 	var unpickedCount int
-	// 统计 "订购量 > 已取量" 的条目数
 	err := tx.QueryRow("SELECT COUNT(*) FROM order_items WHERE order_id = ? AND qty_picked < qty_ordered", orderID).Scan(&unpickedCount)
 	if err != nil {
 		return false, err
 	}
-	// 如果没有未取完的条目，说明完成了
 	return unpickedCount == 0, nil
 }
 
@@ -159,9 +194,8 @@ func (r *OrderRepo) UnlinkProduct(productID int) error {
 	return err
 }
 
-// CreateOrderWithTime (测试用) 创建指定时间的订单
+// CreateOrderWithTime (测试用)
 func (r *OrderRepo) CreateOrderWithTime(tx *sql.Tx, customer string, phone string, status string, createTime time.Time) (int64, error) {
-	// 注意：这里我们显式插入 created_at 字段
 	res, err := tx.Exec("INSERT INTO orders (customer_name, phone, status, created_at) VALUES (?, ?, ?, ?)",
 		customer, phone, status, createTime)
 	if err != nil {
@@ -172,16 +206,14 @@ func (r *OrderRepo) CreateOrderWithTime(tx *sql.Tx, customer string, phone strin
 
 // ProcurementItem 采购清单项
 type ProcurementItem struct {
-	ProductID    int64  `json:"product_id"` // 新增：需要ID来更新
+	ProductID    int64  `json:"product_id"`
 	ProductName  string `json:"product_name"`
-	CurrentStock int    `json:"current_stock"` // 新增：当前库存
-	TotalNeeded  int    `json:"total_needed"`  // 订单总需求
+	CurrentStock int    `json:"current_stock"`
+	TotalNeeded  int    `json:"total_needed"`
 }
 
-// GetProcurementList 获取待采购清单 (聚合所有 Pending 订单的剩余需求 + 当前库存)
+// GetProcurementList 获取待采购清单
 func (r *OrderRepo) GetProcurementList() ([]ProcurementItem, error) {
-	// 逻辑升级：关联 products 表获取当前库存
-	// 统计所有 Pending 订单中 (订购 - 已取) 的数量
 	sqlStr := `
 		SELECT p.id, p.name, p.stock, SUM(oi.qty_ordered - oi.qty_picked) as demand
 		FROM order_items oi

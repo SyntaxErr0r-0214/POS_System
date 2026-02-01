@@ -139,7 +139,7 @@
 <div id="toast-container"></div>
 
 <div class="header">
-    <div class="brand"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg> 万康生态食品团购超市</div>
+    <div class="brand"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg> 万康生态食品团购超市 <span style="font-size:12px;background:red;padding:2px 5px;border-radius:4px;">v2.1</span></div>
     <div class="nav-tabs">
         <div class="nav-item active" onclick="switchTab('cashier')">收银台</div>
         <div class="nav-item" onclick="switchTab('orders')">订单</div>
@@ -173,7 +173,12 @@
         <div class="order-filter-tabs"><div class="filter-tab active" onclick="switchOrderTab('Pending', this)" id="tab-pending">进行中</div><div class="filter-tab" onclick="switchOrderTab('Completed', this)" id="tab-completed">历史记录</div></div>
         <div style="padding:16px 20px; border-bottom:1px solid var(--border);">
             <div class="search-bar"><svg class="search-icon icon-svg"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg><input id="order-search" placeholder="搜单号/姓名..." onkeyup="searchOrders()"></div>
-            <button class="btn btn-indigo" style="width:100%; margin-top:12px; justify-content:center;" onclick="openProcurementModal()">打开采购入库单</button>
+
+            <div id="date-filter-box" style="margin-top:12px; display:none;">
+                <input type="date" id="order-date-picker" style="width:100%; padding:10px; border:1px solid #e5e7eb; border-radius:8px; font-family:inherit;" onchange="searchOrders()">
+            </div>
+
+            <button class="btn btn-indigo" style="width:100%; margin-top:12px; justify-content:center;" onclick="openProcurementModal()">📋 打开采购入库单</button>
         </div>
         <div id="order-list" class="order-list-container"></div>
     </div>
@@ -195,26 +200,26 @@
                 <button class="btn btn-primary" style="padding:14px 28px;" onclick="submitPickup()">确认提货</button>
             </div>
             <div id="refund-action-bar" style="margin-top:32px; padding-top:24px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:12px; display:none;">
-                <button class="btn btn-outline" style="padding:14px 28px; color:#c2410c; border-color:#fdba74;" onclick="openPartialRefund()">部分退款</button>
-                <button class="btn btn-danger-ghost" style="padding:14px 28px;" onclick="doRefund()">全单退款</button>
+                <button class="btn btn-outline" style="padding:14px 28px; color:#c2410c; border-color:#fdba74;" onclick="openPartialRefund()">↩️ 部分退款</button>
+                <button class="btn btn-danger-ghost" style="padding:14px 28px;" onclick="doRefund()">⚠️ 全单退款</button>
             </div>
             <div style="margin-top:20px; padding-top:20px; border-top:1px dashed var(--border); text-align:right;">
-                <button class="btn btn-outline" onclick="doReprint()">补打小票</button>
+                <button class="btn btn-outline" onclick="doReprint()">🖨️ 补打小票</button>
             </div>
         </div>
-        <div id="order-empty-tip" style="color:var(--text-sub); font-weight:600; font-size:18px; display:flex; align-items:center;">请选择一个订单</div>
+        <div id="order-empty-tip" style="color:var(--text-sub); font-weight:600; font-size:18px; display:flex; align-items:center;">👈 请选择一个订单</div>
     </div>
 </div>
 
 <div id="page-inventory" class="page" style="padding:24px;">
     <div class="table-container">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <h2 style="margin:0; font-size:24px; font-weight:800;">商品库存</h2>
+            <h2 style="margin:0; font-size:24px; font-weight:800;">📦 商品库存</h2>
             <div style="display:flex; gap:12px; align-items:center;">
-                <button class="btn btn-warning-ghost" id="btn-low-stock" onclick="toggleLowStock()">缺货</button>
+                <button class="btn btn-warning-ghost" id="btn-low-stock" onclick="toggleLowStock()">⚠️ 缺货</button>
                 <div style="width:1px; height:24px; background:var(--border); margin:0 8px;"></div>
-                <button class="btn btn-outline" onclick="window.location.href='/api/system/backup'">备份</button>
-                <button class="btn btn-outline" onclick="document.getElementById('file-upload').click()">恢复</button>
+                <button class="btn btn-outline" onclick="window.location.href='/api/system/backup'">📥 备份</button>
+                <button class="btn btn-outline" onclick="document.getElementById('file-upload').click()">📤 恢复</button>
                 <input type="file" id="file-upload" style="display:none;" onchange="restoreData(this)">
                 <div class="search-bar" style="width:260px; margin-left:12px;"><svg class="search-icon icon-svg"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg><input placeholder="搜索商品..." oninput="loadInventory(this.value)"></div>
                 <button class="btn btn-primary" style="padding:12px 20px;" onclick="openProductModal()">+ 新增商品</button>
@@ -229,7 +234,7 @@
 
 <div id="page-report" class="page" style="flex-direction:column;">
     <div style="display:flex; justify-content:space-between; align-items:center;">
-        <h2 style="margin:0; font-size:28px; font-weight:800;">营收数据</h2>
+        <h2 style="margin:0; font-size:28px; font-weight:800;">📊 营收数据</h2>
         <div style="display:flex; gap:8px;"><button class="btn btn-outline" onclick="loadReport('day', this)">今日</button><button class="btn btn-outline" onclick="loadReport('week', this)">本周</button><button class="btn btn-outline" onclick="loadReport('month', this)">本月</button></div>
     </div>
     <div class="kpi-grid">
@@ -267,20 +272,20 @@
 
 <div class="modal-overlay" id="procurement-modal">
     <div class="modal" style="width:900px;">
-        <h3>采购入库单 <span style="font-size:14px; color:var(--text-sub); font-weight:400;">(请勾选已买回的商品并完善价格)</span></h3>
+        <h3>🚚 采购入库单 <span style="font-size:14px; color:var(--text-sub); font-weight:400;">(请勾选已买回的商品并完善价格)</span></h3>
         <div style="max-height:500px; overflow-y:auto; margin-top:20px;">
             <table class="data-table">
                 <thead><tr style="background:#f9fafb;"><th style="width:40px;"><input type="checkbox" id="check-all" onclick="toggleAllProcure(this)"></th><th style="padding:12px;">商品名称</th><th style="padding:12px;">当前库存</th><th style="padding:12px;">订单需求</th><th style="padding:12px;color:#9ca3af;">建议采购</th><th style="padding:12px;color:var(--primary);">实际入库</th><th style="padding:12px;">进价(Cost)</th><th style="padding:12px;">售价(Price)</th></tr></thead>
                 <tbody id="procurement-list"></tbody>
             </table>
         </div>
-        <div class="modal-footer"><button class="btn btn-outline" onclick="document.getElementById('procurement-modal').style.display='none'">取消</button><button class="btn btn-primary" onclick="submitProcurement()">完成采购并入库</button></div>
+        <div class="modal-footer"><button class="btn btn-outline" onclick="document.getElementById('procurement-modal').style.display='none'">取消</button><button class="btn btn-primary" onclick="submitProcurement()">✅ 完成采购并入库</button></div>
     </div>
 </div>
 
 <div class="modal-overlay" id="partial-refund-modal">
     <div class="modal" style="width:600px;">
-        <h3>部分退款 <span style="font-size:14px; color:var(--text-sub); font-weight:400;">(请输入要退货的数量)</span></h3>
+        <h3>↩️ 部分退款 <span style="font-size:14px; color:var(--text-sub); font-weight:400;">(请输入要退货的数量)</span></h3>
         <div style="max-height:400px; overflow-y:auto; margin-top:20px;">
             <table class="data-table">
                 <thead><tr style="background:#f9fafb;"><th>商品</th><th>已购</th><th>已退</th><th>本次退货</th></tr></thead>
@@ -296,7 +301,7 @@
 
 <div class="modal-overlay" id="confirm-modal" style="z-index: 2000;">
     <div class="modal" style="width:400px;">
-        <h3 id="confirm-title" style="color:var(--danger)">确认操作</h3>
+        <h3 id="confirm-title" style="color:var(--danger)">⚠️ 确认操作</h3>
         <p id="confirm-msg" style="font-size:16px; color:var(--text-sub); line-height:1.5; margin-bottom:32px;"></p>
         <div class="modal-footer"><button class="btn btn-outline" onclick="closeConfirm(false)">取消</button><button class="btn btn-danger" id="confirm-btn-yes">确定</button></div>
     </div>
@@ -342,6 +347,8 @@
     // --- Cashier ---
     function loadProductGrid() {
         fetch('/api/inventory/list').then(r=>r.json()).then(list=>{
+            // [修复] 判空，防止空库崩溃
+            if (!list) list = [];
             allProducts=list;
             renderCategories(list);
             renderProductGrid(list);
@@ -382,7 +389,7 @@
             const isTemp = p.price === 0;
             const isOut = !isTemp && p.stock <= 0;
             let badge = '';
-            if (isTemp) badge = '<div class="badge-procure">待采购入库</div>';
+            if (isTemp) badge = '<div class="badge-procure">⚠️ 待采购入库</div>';
             else if (isOut) badge = '<div class="badge-out">售罄</div>';
 
             return `<div class="product-card" onclick='addToCart(${JSON.stringify(p)})'>
@@ -409,6 +416,7 @@
                 document.getElementById('temp-prod-name').value = '';
 
                 fetch('/api/inventory/list').then(r=>r.json()).then(list => {
+                    if(!list) list = []; // 防空
                     allProducts = list;
                     selectCategory('临时', 'cashier-cats');
                     const newProd = list.find(x => x.name === name && x.price === 0 && x.category === '临时');
@@ -445,24 +453,32 @@
         if(cart.length===0)return showToast("空车","error");
         const lack = cart.find(i => i.qty > i.stock);
         if (lack) { return showToast(`库存不足: ${lack.name} (剩${lack.stock})，请使用【挂单预订】`, "error"); }
-        fetch('/api/checkout',{method:'POST',body:JSON.stringify({items:cart})}).then(r=>r.ok?(showToast('结算成功'),clearCart(),loadProductGrid()):showToast('库存不足','error'));
+        fetch('/api/checkout',{method:'POST',body:JSON.stringify({items:cart})}).then(r=>r.ok?(showToast('✅ 结算成功'),clearCart(),loadProductGrid()):showToast('库存不足','error'));
     }
 
     // --- Order Logic ---
-    function switchOrderTab(s,b){
-        currentOrderTab=s;
-        document.querySelectorAll('.filter-tab').forEach(e=>e.classList.remove('active'));
+    function switchOrderTab(s, b) {
+        currentOrderTab = s;
+        document.querySelectorAll('.filter-tab').forEach(e => e.classList.remove('active'));
         b.classList.add('active');
+
+        // [新增] 日期选择器控制
+        const dateBox = document.getElementById('date-filter-box');
+        const dateInput = document.getElementById('order-date-picker');
 
         // 隐藏所有动作栏
         document.getElementById('pickup-action-bar').style.display='none';
         document.getElementById('refund-action-bar').style.display='none';
 
-        // 根据tab显示不同
         if (s === 'Pending') {
+            dateBox.style.display = 'none';
+            dateInput.value = ''; // 清空日期
             document.getElementById('pickup-action-bar').style.display='block';
         } else {
-            // Completed 状态
+            dateBox.style.display = 'block';
+            if (!dateInput.value) {
+                dateInput.valueAsDate = new Date();
+            }
         }
 
         currentOrder = null;
@@ -471,35 +487,41 @@
         searchOrders();
     }
 
-    function searchOrders(){
-        const q=document.getElementById('order-search').value;
-        fetch(`/api/orders?status=${currentOrderTab}&q=${q}&_t=${Date.now()}`).then(r=>r.json()).then(l=>{
-            if(!l) l = [];
-            document.getElementById('order-list').innerHTML=l.map((o,i)=>{
-                // 状态标签处理
+    function searchOrders() {
+        const q = document.getElementById('order-search').value;
+        const date = document.getElementById('order-date-picker').value;
+
+        fetch(`/api/orders?status=${currentOrderTab}&q=${q}&date=${date}&_t=${Date.now()}`).then(r => r.json()).then(l => {
+            if (!l) l = [];
+            document.getElementById('order-list').innerHTML = l.map((o, i) => {
                 const isRefunded = o.status === 'Refunded';
                 const isPartial = o.status === 'Partial';
 
-                let cardClass = '';
-                let badge = '';
+                let cardClass = isRefunded ? 'refunded' : '';
+                let badge = isRefunded ? '<span class="refund-badge">已退款</span>' : (isPartial ? '<span class="partial-badge">部分退款</span>' : '');
 
-                if (isRefunded) {
-                    cardClass = 'refunded';
-                    badge = '<span class="refund-badge">已退款</span>';
-                } else if (isPartial) {
-                    badge = '<span class="partial-badge">部分退款</span>';
+                // [新增] 显示流水号逻辑
+                let idDisplay = `#${o.id}`;
+                if (o.daily_seq > 0) {
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    const orderDateStr = o.created_at.substring(0, 10);
+                    if (orderDateStr === todayStr) {
+                        idDisplay = `<span style="font-size:16px;color:#059669;">今日 #${o.daily_seq}</span> <span style="font-size:12px;color:#999;">(#${o.id})</span>`;
+                    } else {
+                        idDisplay = `<span style="color:#666;">${orderDateStr.substring(5)} #${o.daily_seq}</span>`;
+                    }
                 }
 
                 return `<div class="order-card-item ${cardClass}" onclick="selOrd(${i})" id="ord-${i}">
                     <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-                        <span style="color:var(--primary);font-weight:700;">#${o.id}${badge}</span>
-                        <span style="color:#999;font-size:12px;">${o.created_at.substring(5,16)}</span>
+                        <span style="font-weight:800;">${idDisplay} ${badge}</span>
+                        <span style="color:#999;font-size:12px;">${o.created_at.substring(11, 16)}</span>
                     </div>
                     <div style="font-weight:700;">${o.customer_name}</div>
                     <div style="color:#666;font-size:13px;">${o.phone}</div>
                 </div>`
             }).join('');
-            window.cachedOrders=l;
+            window.cachedOrders = l;
         });
     }
 
@@ -520,7 +542,6 @@
         let totalProfit = 0;
         let totalAmount = 0;
         o.items.forEach(item => {
-            // [新增] 兼容 qty_refunded
             const realQty = item.qty_ordered - (item.qty_refunded || 0);
             if (realQty > 0) {
                 const amount = item.price * realQty;
@@ -539,7 +560,7 @@
         const profitTag = document.createElement('span');
         profitTag.id = 'profit-tag';
         profitTag.style.cssText = 'background:#ecfdf5;color:#059669;font-size:13px;padding:4px 10px;border-radius:6px;font-weight:700;margin-left:12px;border:1px solid #a7f3d0;';
-        profitTag.innerHTML = `利润: ¥${totalProfit.toFixed(2)}`;
+        profitTag.innerHTML = `💰 利润: ¥${totalProfit.toFixed(2)}`;
         document.getElementById('detail-name').after(profitTag);
 
         // 状态标签
@@ -559,7 +580,6 @@
         const pi = o.items.filter(i => i.qty_picked > 0);
 
         const renderItem = (i, isPending) => {
-            // [修改] 显示退款信息
             const refundInfo = i.qty_refunded > 0 ? `<span style="color:#c2410c;font-weight:bold;margin-left:8px;">(退 ${i.qty_refunded})</span>` : '';
             const subtotal = i.price * (i.qty_ordered - (i.qty_refunded||0));
 
@@ -589,11 +609,11 @@
         };
 
         document.getElementById('section-unpicked').innerHTML = un.length > 0
-            ? `<div style="font-weight:800;margin:24px 0 12px 0;color:var(--primary);">待提取</div>` + un.map(i => renderItem(i, currentOrderTab === 'Pending')).join('')
+            ? `<div style="font-weight:800;margin:24px 0 12px 0;color:var(--primary);">📦 待提取</div>` + un.map(i => renderItem(i, currentOrderTab === 'Pending')).join('')
             : '';
 
         document.getElementById('section-picked').innerHTML = pi.length > 0
-            ? `<div style="font-weight:800;margin:24px 0 12px 0;color:#6b7280;">已提取</div>` + pi.map(i => renderItem(i, false)).join('')
+            ? `<div style="font-weight:800;margin:24px 0 12px 0;color:#6b7280;">✅ 已提取</div>` + pi.map(i => renderItem(i, false)).join('')
             : '';
     }
     function upPick(id,d){ const el=document.getElementById(`pk-${id}`); let v=parseInt(el.value)+d; const m=parseInt(el.dataset.max); if(v<0)v=0; if(v>m)v=m; el.value=v; }
@@ -606,7 +626,7 @@
         fetch('/api/pickup',{method:'POST',body:JSON.stringify({order_id:currentOrder.id,items})})
             .then(async r => {
                 if(r.ok) {
-                    showToast('提货成功');
+                    showToast('✅ 提货成功');
                     currentOrder = null;
                     document.getElementById('order-detail-card').style.display='none';
                     document.getElementById('order-empty-tip').style.display='flex';
@@ -621,11 +641,11 @@
     // [核心修改] 退款功能
     function doRefund() {
         if (!currentOrder) return;
-        showConfirm(`确定要退款订单 #${currentOrder.id} 吗？\n所有商品将自动加回库存。`, () => {
+        showConfirm(`⚠️ 确定要退款订单 #${currentOrder.id} 吗？\n所有商品将自动加回库存。`, () => {
             fetch(`/api/refund?id=${currentOrder.id}`, {method: 'POST'})
                 .then(async r => {
                     if(r.ok) {
-                        showToast('退款成功，库存已恢复');
+                        showToast('✅ 退款成功，库存已恢复');
                         searchOrders();
                         setTimeout(() => {
                             const idx = window.cachedOrders.findIndex(o => o.id === currentOrder.id);
@@ -647,7 +667,7 @@
         fetch(`/api/reprint?id=${currentOrder.id}`, {method: 'POST'})
             .then(async r => {
                 if(r.ok) {
-                    setTimeout(() => showToast("打印机已接收任务"), 500);
+                    setTimeout(() => showToast("✅ 打印机已接收任务"), 500);
                 } else {
                     showToast("打印失败: " + await r.text(), "error");
                 }
@@ -709,7 +729,7 @@
             body: JSON.stringify({ order_id: currentOrder.id, items: items })
         }).then(async r => {
             if (r.ok) {
-                showToast("部分退款成功");
+                showToast("✅ 部分退款成功");
                 document.getElementById('partial-refund-modal').style.display = 'none';
                 searchOrders();
                 setTimeout(() => {
@@ -786,11 +806,12 @@
 
         fetch('/api/inventory/procure', { method: 'POST', body: JSON.stringify(selected) }).then(r => {
             if(r.ok) {
-                showToast("入库成功！");
+                showToast("✅ 入库成功！");
                 document.getElementById('procurement-modal').style.display='none';
 
                 // 核心修复：入库后，自动同步最新价格到购物车
                 fetch('/api/inventory/list').then(r=>r.json()).then(list => {
+                    if (!list) list = []; // 防空
                     allProducts = list;
                     renderCategories(list);
                     renderProductGrid(list);
@@ -825,6 +846,8 @@
 
     function loadInventory(q='') {
         fetch(`/api/inventory/list?q=${q}`).then(r=>r.json()).then(list=>{
+            // [修复] 判空
+            if (!list) list = [];
             allProducts = list;
             renderCategories(list);
 
@@ -856,7 +879,7 @@
 
     function openProductModal(p){
         document.getElementById('product-modal').style.display='flex';
-        document.getElementById('modal-title').innerText=p?'编辑':'新增';
+        document.getElementById('modal-title').innerText=p?'✏️ 编辑':'✨ 新增';
 
         // 打开弹窗时，更新 datalist 选项
         updateCategoryDatalist(allProducts);
@@ -881,12 +904,12 @@
             price:parseFloat(document.getElementById('prod-price').value)||0,
             stock:parseInt(document.getElementById('prod-stock').value)||0
         };
-        fetch('/api/inventory/save',{method:'POST',body:JSON.stringify(p)}).then(r=>r.json()).then(res=>{ if(res.success){showToast('保存成功');document.getElementById('product-modal').style.display='none';loadInventory();loadProductGrid();}else if(res.conflict_id){showConfirm(res.message+'，跳转编辑？',()=> {document.getElementById('product-modal').style.display='none';fetch('/api/inventory/list').then(r=>r.json()).then(l=>openProductModal(l.find(x=>x.id===res.conflict_id)));})}else showToast(res.message,"error"); });
+        fetch('/api/inventory/save',{method:'POST',body:JSON.stringify(p)}).then(r=>r.json()).then(res=>{ if(res.success){showToast('✅ 保存成功');document.getElementById('product-modal').style.display='none';loadInventory();loadProductGrid();}else if(res.conflict_id){showConfirm(res.message+'，跳转编辑？',()=> {document.getElementById('product-modal').style.display='none';fetch('/api/inventory/list').then(r=>r.json()).then(l=>openProductModal(l.find(x=>x.id===res.conflict_id)));})}else showToast(res.message,"error"); });
     }
 
     function calcMargin(){ const c=parseFloat(document.getElementById('prod-cost').value)||0, p=parseFloat(document.getElementById('prod-price').value)||0; document.getElementById('margin-display').innerHTML=`<span>毛利: ¥${(p-c).toFixed(2)}</span><span>${p>0?((p-c)/p*100).toFixed(0):0}%</span>`; }
     function openBookModal(){ if(cart.length===0)return showToast("购物车为空","error"); document.getElementById('booking-modal').style.display='flex'; }
-    function submitBooking(){ const n=document.getElementById('book-name').value, p=document.getElementById('book-phone').value; if(!n)return showToast("姓名必填","error"); fetch('/api/book',{method:'POST',body:JSON.stringify({customer_name:n,phone:p,items:cart})}).then(r=>r.ok?(showToast('挂单成功'),document.getElementById('booking-modal').style.display='none',clearCart()):showToast('失败',"error")); }
+    function submitBooking(){ const n=document.getElementById('book-name').value, p=document.getElementById('book-phone').value; if(!n)return showToast("姓名必填","error"); fetch('/api/book',{method:'POST',body:JSON.stringify({customer_name:n,phone:p,items:cart})}).then(r=>r.ok?(showToast('✅ 挂单成功'),document.getElementById('booking-modal').style.display='none',clearCart()):showToast('失败',"error")); }
     function restoreData(i){ if(!i.files[0])return; showConfirm('恢复将覆盖数据，确定？', () => { const fd=new FormData(); fd.append('db_file',i.files[0]); fetch('/api/system/restore',{method:'POST',body:fd}).then(async r=>{showToast(await r.text());if(r.ok)location.reload()}); }); i.value=''; }
     function loadReport(t,b){ if(b){document.querySelectorAll('.time-filters button').forEach(x=>x.classList.remove('active'));b.classList.add('active');} fetch(`/api/report?type=${t}`).then(r=>r.json()).then(d=>{ document.getElementById('rpt-revenue').innerText='¥'+d.total_revenue.toFixed(2); document.getElementById('rpt-profit').innerText='¥'+d.total_profit.toFixed(2); document.getElementById('rpt-count').innerText=d.order_count; if(chartInstanceBar)chartInstanceBar.destroy(); chartInstanceBar=new Chart(document.getElementById('barChart'),{type:'bar',data:{labels:d.chart_labels,datasets:[{label:'营收',data:d.chart_data,backgroundColor:'#10b981',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}}); if(chartInstancePie)chartInstancePie.destroy(); chartInstancePie=new Chart(document.getElementById('pieChart'),{type:'doughnut',data:{labels:d.pie_labels,datasets:[{data:d.pie_data,backgroundColor:['#10b981','#3b82f6','#f59e0b','#ef4444','#8b5cf6']}]},options:{responsive:true,maintainAspectRatio:false}}); }); }
 
