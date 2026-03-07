@@ -1,0 +1,1793 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>万康生态食品团购超市 POS</title>
+    <script src="https://cdn.bootcdn.net/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --primary: #10b981;
+            --primary-dark: #059669;
+            --bg-body: #f3f4f6;
+            --bg-card: #ffffff;
+            --text-main: #1f2937;
+            --text-sub: #6b7280;
+            --border: #e5e7eb;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --radius: 12px;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        /* Toast */
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            animation: slideDown 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: auto;
+            min-width: 200px;
+            justify-content: center;
+        }
+
+        .toast.success {
+            color: #059669;
+            border: 1px solid #a7f3d0;
+            background: #ecfdf5;
+        }
+
+        .toast.error {
+            color: #dc2626;
+            border: 1px solid #fecaca;
+            background: #fef2f2;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeOut {
+            to {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+        }
+
+        /* Layout */
+        .header {
+            background: var(--primary);
+            height: 64px;
+            padding: 0 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
+            z-index: 10;
+            flex-shrink: 0;
+        }
+
+        .brand {
+            font-size: 22px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.05);
+            padding: 4px;
+            border-radius: 8px;
+        }
+
+        .nav-item {
+            padding: 8px 24px;
+            font-size: 15px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+        }
+
+        .nav-item.active {
+            background: white;
+            color: var(--primary);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .page {
+            display: none;
+            flex: 1;
+            height: calc(100vh - 64px);
+            overflow: hidden;
+            padding-bottom: 0;
+        }
+
+        .page.active {
+            display: flex;
+        }
+
+        /* Components */
+        .icon-svg {
+            width: 20px;
+            height: 20px;
+            stroke: currentColor;
+            stroke-width: 2;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            user-select: none;
+            white-space: nowrap;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 2px 5px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+
+        .btn-outline {
+            background: white;
+            border: 1px solid #d1d5db;
+            color: var(--text-main);
+        }
+
+        .btn-outline:hover {
+            border-color: var(--text-sub);
+            background: #f9fafb;
+            color: var(--primary);
+        }
+
+        .btn-danger-ghost {
+            background: #fef2f2;
+            color: var(--danger);
+        }
+
+        .btn-danger-ghost:hover {
+            background: #fee2e2;
+        }
+
+        .btn-warning-ghost {
+            background: #fffbeb;
+            color: var(--warning);
+            border: 1px solid #fcd34d;
+        }
+
+        .btn-warning-ghost:hover {
+            background: #fef3c7;
+        }
+
+        .btn-warning-active {
+            background: var(--warning);
+            color: white;
+            border-color: var(--warning);
+        }
+
+        .btn-indigo {
+            background: #6366f1;
+            color: white;
+        }
+
+        .btn-indigo:hover {
+            background: #4f46e5;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+            box-shadow: 0 2px 5px rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .search-bar {
+            position: relative;
+            width: 100%;
+        }
+
+        .search-bar input {
+            width: 100%;
+            padding: 14px 20px 14px 48px;
+            border: 1px solid var(--border);
+            border-radius: 50px;
+            font-size: 16px;
+            outline: none;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.02);
+            transition: 0.2s;
+            background: white;
+        }
+
+        .search-bar input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 20px;
+            height: 20px;
+            color: #9ca3af;
+            pointer-events: none;
+        }
+
+        /* 分类标签栏样式 */
+        .category-tabs {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+            margin-bottom: 16px;
+            scrollbar-width: thin;
+            flex-shrink: 0;
+        }
+
+        .cat-btn {
+            padding: 8px 16px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: 0.2s;
+            color: var(--text-sub);
+        }
+
+        .cat-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            box-shadow: 0 2px 5px rgba(16, 185, 129, 0.2);
+        }
+
+        .cat-btn:hover:not(.active) {
+            background: #f9fafb;
+            border-color: #d1d5db;
+            color: var(--primary);
+        }
+
+        /* Cashier */
+        .cashier-left {
+            width: 420px;
+            background: white;
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            z-index: 5;
+            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.02);
+        }
+
+        .cashier-right {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            background: var(--bg-body);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+            gap: 12px;
+            padding-bottom: 20px;
+        }
+
+        .product-card {
+            background: white;
+            border-radius: 10px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .product-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 12px -5px rgba(0, 0, 0, 0.1);
+            border-color: var(--primary);
+        }
+
+        .product-card.add-new {
+            border: 2px dashed var(--primary);
+            background: #ecfdf5;
+            justify-content: center;
+            align-items: center;
+            color: var(--primary);
+        }
+
+        .product-card.add-new:hover {
+            background: #d1fae5;
+            border-color: var(--primary-dark);
+        }
+
+        .badge-procure {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            background: #fffbeb;
+            color: #d97706;
+            font-size: 10px;
+            padding: 1px 4px;
+            border-radius: 4px;
+            font-weight: 800;
+            border: 1px solid #fcd34d;
+        }
+
+        .badge-out {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            background: #f3f4f6;
+            color: #9ca3af;
+            font-size: 10px;
+            padding: 1px 4px;
+            border-radius: 4px;
+            font-weight: 800;
+        }
+
+        .p-name {
+            font-weight: 700;
+            font-size: 14px;
+            line-height: 1.3;
+            color: var(--text-main);
+            margin-bottom: 4px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .p-price {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--primary);
+        }
+
+        .p-stock {
+            font-size: 11px;
+            color: var(--text-sub);
+            background: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .p-stock.low {
+            color: var(--danger);
+            background: #fef2f2;
+        }
+
+        .cart-item {
+            padding: 16px 24px;
+            border-bottom: 1px dashed var(--border);
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 12px;
+            align-items: center;
+            background: white;
+        }
+
+        .qty-control {
+            display: flex;
+            align-items: center;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            width: fit-content;
+            overflow: hidden;
+        }
+
+        .qty-btn {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            background: #f9fafb;
+            font-weight: 700;
+            font-size: 18px;
+            color: var(--text-sub);
+            transition: 0.2s;
+            user-select: none;
+        }
+
+        .qty-btn:hover {
+            background: #e5e7eb;
+            color: var(--primary);
+        }
+
+        .qty-val {
+            width: 48px;
+            height: 36px;
+            text-align: center;
+            font-size: 16px;
+            font-weight: 700;
+            border: none;
+            border-left: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            color: var(--text-main);
+            outline: none;
+        }
+
+        .price-edit {
+            width: 90px;
+            padding: 6px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 16px;
+            color: var(--primary);
+            background: white;
+            outline: none;
+            transition: 0.2s;
+        }
+
+        .price-edit:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        }
+
+        /* Order & Inventory */
+        .order-list-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            background: #f3f4f6;
+        }
+
+        .order-card-item {
+            padding: 20px;
+            margin-bottom: 16px;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+        }
+
+        .order-card-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.05);
+            border-color: var(--primary);
+        }
+
+        .order-card-item.selected {
+            background: #ecfdf5;
+            border: 2px solid var(--primary);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+        }
+
+        .order-card-item.refunded {
+            background: #f3f4f6;
+            border-color: #e5e7eb;
+            color: #9ca3af;
+            opacity: 0.8;
+        }
+
+        .order-card-item.refunded:hover {
+            transform: none;
+            box-shadow: none;
+        }
+
+        .refund-badge {
+            background: #fee2e2;
+            color: #dc2626;
+            font-size: 12px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 700;
+            display: inline-block;
+            margin-left: 8px;
+        }
+
+        .partial-badge {
+            background: #fff7ed;
+            color: #c2410c;
+            font-size: 12px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 700;
+            display: inline-block;
+            margin-left: 8px;
+            border: 1px solid #fdba74;
+        }
+
+        .order-filter-tabs {
+            display: flex;
+            gap: 10px;
+            padding: 16px 20px 0 20px;
+            background: white;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .filter-tab {
+            padding: 12px 24px;
+            font-weight: 700;
+            color: var(--text-sub);
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: 0.2s;
+        }
+
+        .filter-tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .table-container {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: var(--shadow);
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--border);
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .data-table th {
+            text-align: left;
+            padding: 16px;
+            color: var(--text-sub);
+            font-size: 13px;
+            font-weight: 700;
+            border-bottom: 2px solid #f3f4f6;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .data-table td {
+            padding: 16px;
+            border-bottom: 1px solid #f3f4f6;
+            color: var(--text-main);
+            font-size: 15px;
+            vertical-align: middle;
+        }
+
+        .data-table tr:hover {
+            background: #f9fafb;
+        }
+
+        .stock-warning {
+            color: var(--danger);
+            font-weight: 800;
+            background: #fef2f2;
+            padding: 4px 8px;
+            border-radius: 6px;
+            display: inline-block;
+        }
+
+        /* Report */
+        #page-report {
+            overflow-y: auto;
+            padding: 32px;
+            gap: 24px;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .kpi-card {
+            background: white;
+            padding: 32px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .kpi-title {
+            font-size: 13px;
+            color: var(--text-sub);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .kpi-value {
+            font-size: 42px;
+            font-weight: 900;
+            color: var(--text-main);
+            letter-spacing: -1px;
+        }
+
+        .charts-container {
+            display: flex;
+            gap: 24px;
+            height: 400px;
+            width: 100%;
+        }
+
+        .chart-box-main {
+            flex: 2;
+            position: relative;
+        }
+
+        .chart-box-side {
+            flex: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Modals */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(4px);
+            z-index: 999;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal {
+            background: white;
+            width: 460px;
+            padding: 40px;
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            animation: popIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            from {
+                transform: scale(0.9);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 8px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 14px 18px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: 0.2s;
+            outline: none;
+            background: #f9fafb;
+        }
+
+        .form-group input:focus {
+            border-color: var(--primary);
+            background: white;
+            box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 32px;
+        }
+
+        .procure-input {
+            width: 80px;
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .refund-input {
+            width: 60px;
+            padding: 6px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            text-align: center;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="toast-container"></div>
+
+    <div class="header">
+        <div class="brand"><svg class="icon-svg" viewBox="0 0 24 24">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+            </svg> 万康生态食品团购超市 <span style="font-size:12px;background:red;padding:2px 5px;border-radius:4px;">v2.1</span>
+        </div>
+        <div class="nav-tabs">
+            <div class="nav-item active" onclick="switchTab('cashier')">收银台</div>
+            <div class="nav-item" onclick="switchTab('orders')">订单</div>
+            <div class="nav-item" onclick="switchTab('inventory')">库存</div>
+            <div class="nav-item" onclick="switchTab('report')">报表</div>
+        </div>
+    </div>
+
+    <div id="page-cashier" class="page active">
+        <div class="cashier-left">
+            <div style="padding:24px; border-bottom:1px solid var(--border);">
+                <div style="font-size:20px; font-weight:800;">当前订单</div>
+            </div>
+            <div class="cart-list" id="cart-list" style="flex:1; overflow-y:auto; padding:0;"></div>
+            <div style="padding:24px; background:white; border-top:1px solid var(--border);">
+                <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:20px;">
+                    <span style="font-size:15px; font-weight:600; color:var(--text-sub);">应收总额</span><span
+                        style="font-size:40px; font-weight:900; color:var(--primary); line-height:1;">¥<span
+                            id="total-val">0.00</span></span>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <button class="btn btn-outline" style="justify-content:center; padding:16px;"
+                        onclick="openBookModal()">挂单预订</button>
+                    <button class="btn btn-outline" style="justify-content:center; padding:16px; color:var(--danger);"
+                        onclick="clearCart()">清空</button>
+                    <button class="btn btn-primary"
+                        style="grid-column:span 2; justify-content:center; padding:18px; font-size:18px;"
+                        onclick="checkout()">结算收款 (Space)</button>
+                </div>
+            </div>
+        </div>
+        <div class="cashier-right">
+            <div class="category-tabs" id="cashier-cats"></div>
+            <div style="margin-bottom:24px; max-width:600px; flex-shrink: 0;">
+                <div class="search-bar"><svg class="search-icon icon-svg">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg><input type="text" id="barcode-input" placeholder="扫描条码 / 搜索商品名称..." autocomplete="off"></div>
+            </div>
+            <div class="product-grid" id="product-grid"></div>
+        </div>
+    </div>
+
+    <div id="page-orders" class="page" style="flex-direction:row;">
+        <div
+            style="width:380px; background:white; border-right:1px solid var(--border); display:flex; flex-direction:column;">
+            <div class="order-filter-tabs">
+                <div class="filter-tab active" onclick="switchOrderTab('Pending', this)" id="tab-pending">进行中</div>
+                <div class="filter-tab" onclick="switchOrderTab('Completed', this)" id="tab-completed">历史记录</div>
+            </div>
+            <div style="padding:16px 20px; border-bottom:1px solid var(--border);">
+                <div class="search-bar"><svg class="search-icon icon-svg">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg><input id="order-search" placeholder="搜单号/姓名..." onkeyup="searchOrders()"></div>
+
+                <div id="date-filter-box" style="margin-top:12px; display:none;">
+                    <input type="date" id="order-date-picker"
+                        style="width:100%; padding:10px; border:1px solid #e5e7eb; border-radius:8px; font-family:inherit;"
+                        onchange="searchOrders()">
+                </div>
+
+                <button class="btn btn-indigo" style="width:100%; margin-top:12px; justify-content:center;"
+                    onclick="openProcurementModal()">📋 打开采购入库单</button>
+            </div>
+            <div id="order-list" class="order-list-container"></div>
+        </div>
+        <div style="flex:1; background:#f9fafb; padding:40px; display:flex; justify-content:center; overflow-y:auto;">
+            <div id="order-detail-card"
+                style="display:none; width:100%; max-width:700px; background:white; border-radius:20px; box-shadow:var(--shadow); padding:40px; height:fit-content; margin-bottom:40px;">
+                <div
+                    style="display:flex; justify-content:space-between; margin-bottom:32px; padding-bottom:24px; border-bottom:1px solid var(--border);">
+                    <div>
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <h2 style="margin:0; font-size:28px; font-weight:800;" id="detail-name"></h2>
+                            <span id="refunded-tag"
+                                style="display:none;background:#fee2e2;color:#dc2626;font-size:12px;padding:2px 8px;border-radius:4px;font-weight:700;">已退款</span>
+                            <span id="partial-tag"
+                                style="display:none;background:#fff7ed;color:#c2410c;font-size:12px;padding:2px 8px;border-radius:4px;font-weight:700;border:1px solid #fdba74;">部分退款</span>
+                        </div>
+                        <div style="color:var(--text-sub); margin-top:6px;" id="detail-phone"></div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="background:var(--primary); color:white; padding:6px 12px; border-radius:8px; font-weight:700;"
+                            id="detail-id"></div>
+                        <div style="color:var(--text-sub); margin-top:8px;" id="detail-time"></div>
+                    </div>
+                </div>
+                <div style="overflow-y:auto;">
+                    <div id="section-unpicked"></div>
+                    <div id="section-picked"></div>
+                </div>
+                <div id="pickup-action-bar"
+                    style="margin-top:32px; padding-top:24px; border-top:1px solid var(--border); text-align:right;">
+                    <button class="btn btn-primary" style="padding:14px 28px;" onclick="submitPickup()">确认提货</button>
+                </div>
+                <div id="refund-action-bar"
+                    style="margin-top:32px; padding-top:24px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:12px; display:none;">
+                    <button class="btn btn-outline" style="padding:14px 28px; color:#c2410c; border-color:#fdba74;"
+                        onclick="openPartialRefund()">↩️ 部分退款</button>
+                    <button class="btn btn-danger-ghost" style="padding:14px 28px;" onclick="doRefund()">⚠️
+                        全单退款</button>
+                </div>
+                <div style="margin-top:20px; padding-top:20px; border-top:1px dashed var(--border); text-align:right;">
+                    <button class="btn btn-outline" onclick="doReprint()">🖨️ 补打小票</button>
+                </div>
+            </div>
+            <div id="order-empty-tip"
+                style="color:var(--text-sub); font-weight:600; font-size:18px; display:flex; align-items:center;">👈
+                请选择一个订单</div>
+        </div>
+    </div>
+
+    <div id="page-inventory" class="page" style="padding:24px;">
+        <div class="table-container">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h2 style="margin:0; font-size:24px; font-weight:800;">📦 商品库存</h2>
+                <div style="display:flex; gap:12px; align-items:center;">
+                    <button class="btn btn-warning-ghost" id="btn-low-stock" onclick="toggleLowStock()">⚠️ 缺货</button>
+                    <div style="width:1px; height:24px; background:var(--border); margin:0 8px;"></div>
+                    <button class="btn btn-outline" onclick="window.location.href='/api/system/backup'">📥 备份</button>
+                    <button class="btn btn-outline" onclick="document.getElementById('file-upload').click()">📤
+                        恢复</button>
+                    <input type="file" id="file-upload" style="display:none;" onchange="restoreData(this)">
+                    <div class="search-bar" style="width:260px; margin-left:12px;"><svg class="search-icon icon-svg">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg><input placeholder="搜索商品..." oninput="loadInventory(this.value)"></div>
+                    <button class="btn btn-outline"
+                        style="padding:12px 16px;color:var(--primary);border-color:var(--primary);"
+                        onclick="batchChangeCategory()">批量分类</button>
+                    <button class="btn btn-outline"
+                        style="padding:12px 16px;color:var(--danger);border-color:var(--danger);"
+                        onclick="batchDelete()">批量删除</button>
+                    <button class="btn btn-primary" style="padding:12px 20px;" onclick="openProductModal()">+
+                        新增商品</button>
+                </div>
+            </div>
+            <div class="category-tabs" id="inventory-cats" style="margin-bottom:20px;"></div>
+            <div style="flex:1; overflow-y:auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr style="background:#f9fafb; border-bottom:2px solid var(--border);">
+                            <th style="width:40px;"><input type="checkbox" id="selectAllInv"
+                                    onclick="toggleAllInv(this)"></th>
+                            <th style="width:60px;">ID</th>
+                            <th>分类</th>
+                            <th>条码</th>
+                            <th>名称</th>
+                            <th style="width:50px;">单位</th>
+                            <th>进价</th>
+                            <th>售价</th>
+                            <th>库存</th>
+                            <th>毛利</th>
+                            <th style="text-align:right;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventory-list"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-report" class="page" style="flex-direction:column;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h2 style="margin:0; font-size:28px; font-weight:800;">📊 营收数据</h2>
+            <div style="display:flex; gap:8px;"><button class="btn btn-outline"
+                    onclick="loadReport('day', this)">今日</button><button class="btn btn-outline"
+                    onclick="loadReport('week', this)">本周</button><button class="btn btn-outline"
+                    onclick="loadReport('month', this)">本月</button></div>
+        </div>
+        <div class="kpi-grid">
+            <div class="kpi-card"><span class="kpi-title">总营收 REVENUE</span><span class="kpi-value"
+                    id="rpt-revenue">¥0.00</span></div>
+            <div class="kpi-card"><span class="kpi-title">净利润 PROFIT</span><span class="kpi-value"
+                    style="color:var(--primary)" id="rpt-profit">¥0.00</span></div>
+            <div class="kpi-card"><span class="kpi-title">订单数 ORDERS</span><span class="kpi-value"
+                    id="rpt-count">0</span></div>
+        </div>
+        <div class="charts-container">
+            <div class="kpi-card chart-box-main"><canvas id="barChart"></canvas></div>
+            <div class="kpi-card chart-box-side"><canvas id="pieChart"></canvas></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="product-modal">
+        <div class="modal">
+            <h3 id="modal-title">商品信息</h3><input type="hidden" id="prod-id">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+                <div class="form-group"><label>条码</label><input id="prod-barcode"></div>
+                <div class="form-group">
+                    <label>分类</label>
+                    <input id="prod-category" list="cat-list" placeholder="选择或输入分类">
+                    <datalist id="cat-list"></datalist>
+                </div>
+            </div>
+            <div class="form-group"><label>名称</label><input id="prod-name"></div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+                <div class="form-group"><label>进价</label><input type="number" id="prod-cost" step="0.01"
+                        oninput="calcMargin()"></div>
+                <div class="form-group"><label>售价</label><input type="number" id="prod-price" step="0.01"
+                        oninput="calcMargin()"></div>
+            </div>
+            <div style="font-weight:700; color:var(--primary); font-size:15px; margin-bottom:20px; display:flex; justify-content:space-between; background:#ecfdf5; padding:12px; border-radius:8px;"
+                id="margin-display"><span>毛利: ¥0.00</span><span>0%</span></div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+                <div class="form-group"><label>库存</label><input type="number" id="prod-stock"></div>
+                <div class="form-group"><label>单位</label><input id="prod-unit" placeholder="例如：个、箱、斤" value="个"></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-outline"
+                    onclick="document.getElementById('product-modal').style.display='none'">取消</button><button
+                    class="btn btn-primary" onclick="saveProduct()">保存</button></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="booking-modal">
+        <div class="modal">
+            <h3>新建预订</h3>
+            <div class="form-group"><label>客户姓名</label><input id="book-name"></div>
+            <div class="form-group"><label>联系电话</label><input id="book-phone"></div>
+            <div class="modal-footer"><button class="btn btn-outline"
+                    onclick="document.getElementById('booking-modal').style.display='none'">取消</button><button
+                    class="btn btn-primary" onclick="submitBooking()">确定挂单</button></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="procurement-modal">
+        <div class="modal" style="width:900px;">
+            <h3>🚚 采购入库单 <span style="font-size:14px; color:var(--text-sub); font-weight:400;">(请勾选已买回的商品并完善价格)</span>
+            </h3>
+            <div style="max-height:500px; overflow-y:auto; margin-top:20px;">
+                <table class="data-table">
+                    <thead>
+                        <tr style="background:#f9fafb;">
+                            <th style="width:40px;"><input type="checkbox" id="check-all"
+                                    onclick="toggleAllProcure(this)"></th>
+                            <th style="padding:12px;">商品名称</th>
+                            <th style="padding:12px;">当前库存</th>
+                            <th style="padding:12px;">订单需求</th>
+                            <th style="padding:12px;color:#9ca3af;">建议采购</th>
+                            <th style="padding:12px;color:var(--primary);">实际入库</th>
+                            <th style="padding:12px;">进价(Cost)</th>
+                            <th style="padding:12px;">售价(Price)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="procurement-list"></tbody>
+                </table>
+            </div>
+            <div class="modal-footer"><button class="btn btn-outline"
+                    onclick="document.getElementById('procurement-modal').style.display='none'">取消</button><button
+                    class="btn btn-primary" onclick="submitProcurement()">✅ 完成采购并入库</button></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="partial-refund-modal">
+        <div class="modal" style="width:600px;">
+            <h3>↩️ 部分退款 <span style="font-size:14px; color:var(--text-sub); font-weight:400;">(请输入要退货的数量)</span></h3>
+            <div style="max-height:400px; overflow-y:auto; margin-top:20px;">
+                <table class="data-table">
+                    <thead>
+                        <tr style="background:#f9fafb;">
+                            <th>商品</th>
+                            <th>已购</th>
+                            <th>已退</th>
+                            <th>本次退货</th>
+                        </tr>
+                    </thead>
+                    <tbody id="partial-refund-list"></tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline"
+                    onclick="document.getElementById('partial-refund-modal').style.display='none'">取消</button>
+                <button class="btn btn-primary" onclick="submitPartialRefund()">确认退款</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="confirm-modal" style="z-index: 2000;">
+        <div class="modal" style="width:400px;">
+            <h3 id="confirm-title" style="color:var(--danger)">⚠️ 确认操作</h3>
+            <p id="confirm-msg" style="font-size:16px; color:var(--text-sub); line-height:1.5; margin-bottom:32px;"></p>
+            <div class="modal-footer"><button class="btn btn-outline" onclick="closeConfirm(false)">取消</button><button
+                    class="btn btn-danger" id="confirm-btn-yes">确定</button></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="temp-product-modal" style="z-index: 2000;">
+        <div class="modal" style="width:400px;">
+            <h3>✨ 新增临时商品</h3>
+            <div class="form-group" style="margin-top:20px;"><label>商品名称</label><input id="temp-prod-name"
+                    placeholder="例如：特产核桃 5斤"></div>
+            <div class="form-group"><label>单位</label><input id="temp-prod-unit" placeholder="例如：个、箱" value="个"></div>
+            <div class="modal-footer"><button class="btn btn-outline"
+                    onclick="document.getElementById('temp-product-modal').style.display='none'">取消</button><button
+                    class="btn btn-primary" onclick="confirmAddTemp()">确定添加</button></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="batch-category-modal" style="z-index: 2000;">
+        <div class="modal" style="width:400px;">
+            <h3>🏷️ 批量修改分类</h3>
+            <p id="batch-cat-msg" style="font-size:14px; color:var(--text-sub); margin-bottom:16px;"></p>
+            <div class="form-group"><label>新分类名称</label><input id="batch-cat-input" placeholder="例如：水果、饮料"></div>
+            <div class="modal-footer"><button class="btn btn-outline"
+                    onclick="document.getElementById('batch-category-modal').style.display='none'">取消</button><button
+                    class="btn btn-primary" onclick="submitBatchCategory()">确定修改</button></div>
+        </div>
+    </div>
+
+    <script>
+        // --- Tools ---
+        function showToast(m, t = 'success') {
+            const c = document.getElementById('toast-container'); const el = document.createElement('div'); el.className = `toast ${t}`;
+            el.innerHTML = (t === 'success' ? `<svg class="icon-svg" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>` : `<svg class="icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`) + m;
+            c.appendChild(el); setTimeout(() => { el.style.animation = 'fadeOut 0.3s forwards'; setTimeout(() => el.remove(), 300) }, 3000);
+        }
+        let confirmCb = null;
+        function showConfirm(m, y) { document.getElementById('confirm-msg').innerText = m; document.getElementById('confirm-modal').style.display = 'flex'; confirmCb = y; }
+        function closeConfirm(y) { document.getElementById('confirm-modal').style.display = 'none'; if (y && confirmCb) confirmCb(); confirmCb = null; }
+        document.getElementById('confirm-btn-yes').onclick = () => closeConfirm(true);
+
+        // --- Data ---
+        let cart = [], allProducts = [], currentOrder = null, currentOrderTab = 'Pending', chartInstanceBar = null, chartInstancePie = null, procurementData = [];
+        let showLowStockOnly = false;
+        let currentCategory = '全部';
+
+        function switchTab(t) {
+            document.querySelectorAll('.page').forEach(e => e.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
+            const map = { 'cashier': 0, 'orders': 1, 'inventory': 2, 'report': 3 };
+            document.querySelectorAll('.nav-item')[map[t]].classList.add('active');
+            document.getElementById('page-' + t).classList.add('active');
+            if (t === 'cashier') { loadProductGrid(); document.getElementById('barcode-input').focus(); }
+            if (t === 'orders') searchOrders();
+            if (t === 'inventory') loadInventory();
+            if (t === 'report') loadReport('day');
+        }
+
+        // --- Cashier ---
+        function loadProductGrid() {
+            fetch('/api/inventory/list').then(r => r.json()).then(list => {
+                // [修复] 判空，防止空库崩溃
+                if (!list) list = [];
+                allProducts = list;
+                renderCategories(list);
+                renderProductGrid(list);
+            });
+        }
+
+        function renderCategories(list) {
+            const cats = ['全部', ...new Set(list.map(p => p.category || '未分类'))];
+            const generateTabs = (id) => {
+                const container = document.getElementById(id);
+                if (!container) return;
+                container.innerHTML = cats.map(c => `
+                <div class="cat-btn ${c === currentCategory ? 'active' : ''}"
+                     onclick="selectCategory('${c}', '${id}')">${c}</div>
+            `).join('');
+            };
+            generateTabs('cashier-cats');
+            generateTabs('inventory-cats');
+        }
+
+        function selectCategory(c, sourceId) {
+            currentCategory = c;
+            renderCategories(allProducts);
+            if (sourceId === 'cashier-cats') renderProductGrid(allProducts);
+            if (sourceId === 'inventory-cats') loadInventory();
+        }
+
+        function renderProductGrid(list) {
+            const grid = document.getElementById('product-grid');
+            const addCard = `<div class="product-card add-new" onclick="document.getElementById('temp-product-modal').style.display='flex';setTimeout(()=>document.getElementById('temp-prod-name').focus(),100)"><svg class="icon-svg" style="width:28px;height:28px;" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg><div style="font-weight:700;margin-top:8px;font-size:13px;">新增临时商品</div></div>`;
+
+            let filtered = list;
+            if (currentCategory !== '全部') {
+                filtered = list.filter(p => (p.category || '未分类') === currentCategory);
+            }
+
+            const items = filtered.map(p => {
+                const isTemp = p.price === 0;
+                const isOut = !isTemp && p.stock <= 0;
+                let badge = '';
+                if (isTemp) badge = '<div class="badge-procure">⚠️ 待采购入库</div>';
+                else if (isOut) badge = '<div class="badge-out">售罄</div>';
+
+                return `<div class="product-card" onclick='addToCart(${JSON.stringify(p)})'>
+                ${badge}
+                <div class="p-name">${p.name}</div>
+                <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:auto;">
+                    <div class="p-price">¥${p.price}<span style="font-size:14px;color:#666">/${p.unit || '个'}</span></div>
+                    ${!isTemp && !isOut ? `<div class="p-stock ${p.stock < 10 ? 'low' : ''}">${p.stock}</div>` : ''}
+                </div>
+            </div>`;
+            }).join('');
+            grid.innerHTML = addCard + items;
+        }
+
+        function confirmAddTemp() {
+            const name = document.getElementById('temp-prod-name').value;
+            const unit = document.getElementById('temp-prod-unit').value || '个'; // 获取输入的单位，默认"个"
+            if (!name) return showToast("请输入名称", "error");
+            const p = { barcode: 'T' + Date.now().toString().slice(-6), name: name, category: '临时', cost_price: 0, price: 0, stock: 0, unit: unit };
+
+            fetch('/api/inventory/save', { method: 'POST', body: JSON.stringify(p) }).then(r => r.json()).then(res => {
+                if (res.success) {
+                    showToast("已添加至当前订单");
+                    document.getElementById('temp-product-modal').style.display = 'none';
+                    document.getElementById('temp-prod-name').value = '';
+
+                    fetch('/api/inventory/list').then(r => r.json()).then(list => {
+                        if (!list) list = []; // 防空
+                        allProducts = list;
+                        selectCategory('临时', 'cashier-cats');
+                        const newProd = list.find(x => x.name === name && x.price === 0 && x.category === '临时');
+                        if (newProd) {
+                            addToCart(newProd);
+                        }
+                    });
+                } else { showToast(res.message, "error"); }
+            });
+        }
+
+        document.getElementById('barcode-input').addEventListener('input', (e) => {
+            const val = e.target.value.toLowerCase();
+            const filtered = allProducts.filter(p => p.name.toLowerCase().includes(val) || p.barcode.includes(val));
+            renderProductGrid(filtered);
+        });
+
+        document.getElementById('barcode-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const p = allProducts.find(x => x.barcode === e.target.value);
+                if (p) { addToCart(p); e.target.value = ''; renderProductGrid(allProducts); }
+            }
+        });
+
+        function addToCart(p) {
+            const item = cart.find(x => x.id === p.id);
+            if (item) { item.qty++; } else { cart.push({ ...p, qty: 1 }); }
+            renderCart();
+        }
+        function renderCart() { let t = 0; document.getElementById('cart-list').innerHTML = cart.map((i, x) => { t += i.price * i.qty; return `<div class="cart-item"><div><div class="item-name">${i.name}</div><div style="display:flex;align-items:center;gap:12px;">¥<input class="price-edit" type="number" value="${i.price}" onchange="cart[${x}].price=parseFloat(this.value);renderCart()"><span style="color:#666;font-size:14px;">/${i.unit || '个'}</span><span style="color:#999;margin-left:8px;">×</span><div class="qty-control"><div class="qty-btn" onclick="upQty(${x},-1)">-</div><input class="qty-val" value="${i.qty}" readonly><div class="qty-btn" onclick="upQty(${x},1)">+</div></div></div></div><div style="text-align:right;"><div style="font-weight:800;font-size:18px;">¥${(i.price * i.qty).toFixed(2)}</div><div style="color:var(--danger);font-size:12px;cursor:pointer;margin-top:4px;" onclick="cart.splice(${x},1);renderCart()">删除</div></div></div>` }).join(''); document.getElementById('total-val').innerText = t.toFixed(2); }
+        function upQty(x, d) { const i = cart[x], n = i.qty + d; if (n > 0) i.qty = n; else cart.splice(x, 1); renderCart(); }
+        function clearCart() { cart = []; renderCart(); }
+        function checkout() {
+            if (cart.length === 0) return showToast("空车", "error");
+            const lack = cart.find(i => i.qty > i.stock);
+            if (lack) { return showToast(`库存不足: ${lack.name} (剩${lack.stock})，请使用【挂单预订】`, "error"); }
+            fetch('/api/checkout', { method: 'POST', body: JSON.stringify({ items: cart }) }).then(r => r.ok ? (showToast('✅ 结算成功'), clearCart(), loadProductGrid()) : showToast('库存不足', 'error'));
+        }
+
+        // --- Order Logic ---
+        function switchOrderTab(s, b) {
+            currentOrderTab = s;
+            document.querySelectorAll('.filter-tab').forEach(e => e.classList.remove('active'));
+            b.classList.add('active');
+
+            // [新增] 日期选择器控制
+            const dateBox = document.getElementById('date-filter-box');
+            const dateInput = document.getElementById('order-date-picker');
+
+            // 隐藏所有动作栏
+            document.getElementById('pickup-action-bar').style.display = 'none';
+            document.getElementById('refund-action-bar').style.display = 'none';
+
+            if (s === 'Pending') {
+                dateBox.style.display = 'none';
+                dateInput.value = ''; // 清空日期
+                document.getElementById('pickup-action-bar').style.display = 'block';
+            } else {
+                dateBox.style.display = 'block';
+                if (!dateInput.value) {
+                    dateInput.valueAsDate = new Date();
+                }
+            }
+
+            currentOrder = null;
+            document.getElementById('order-detail-card').style.display = 'none';
+            document.getElementById('order-empty-tip').style.display = 'flex';
+            searchOrders();
+        }
+
+        function searchOrders() {
+            const q = document.getElementById('order-search').value;
+            const date = document.getElementById('order-date-picker').value;
+
+            fetch(`/api/orders?status=${currentOrderTab}&q=${q}&date=${date}&_t=${Date.now()}`).then(r => r.json()).then(l => {
+                if (!l) l = [];
+                document.getElementById('order-list').innerHTML = l.map((o, i) => {
+                    const isRefunded = o.status === 'Refunded';
+                    const isPartial = o.status === 'Partial';
+
+                    let cardClass = isRefunded ? 'refunded' : '';
+                    let badge = isRefunded ? '<span class="refund-badge">已退款</span>' : (isPartial ? '<span class="partial-badge">部分退款</span>' : '');
+
+                    // [新增] 显示流水号逻辑
+                    let idDisplay = `#${o.id}`;
+                    if (o.daily_seq > 0) {
+                        const todayStr = new Date().toISOString().split('T')[0];
+                        const orderDateStr = o.created_at.substring(0, 10);
+                        if (orderDateStr === todayStr) {
+                            idDisplay = `<span style="font-size:16px;color:#059669;">今日 #${o.daily_seq}</span> <span style="font-size:12px;color:#999;">(#${o.id})</span>`;
+                        } else {
+                            idDisplay = `<span style="color:#666;">${orderDateStr.substring(5)} #${o.daily_seq}</span>`;
+                        }
+                    }
+
+                    return `<div class="order-card-item ${cardClass}" onclick="selOrd(${i})" id="ord-${i}">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                        <span style="font-weight:800;">${idDisplay} ${badge}</span>
+                        <span style="color:#999;font-size:12px;">${o.created_at.substring(11, 16)}</span>
+                    </div>
+                    <div style="font-weight:700;">${o.customer_name}</div>
+                    <div style="color:#666;font-size:13px;">${o.phone}</div>
+                </div>`
+                }).join('');
+                window.cachedOrders = l;
+            });
+        }
+
+        function selOrd(i) {
+            const o = window.cachedOrders[i];
+            currentOrder = o;
+            document.querySelectorAll('.order-card-item').forEach(e => e.classList.remove('selected'));
+            document.getElementById(`ord-${i}`).classList.add('selected');
+            document.getElementById('order-empty-tip').style.display = 'none';
+            document.getElementById('order-detail-card').style.display = 'block';
+
+            document.getElementById('detail-name').innerText = o.customer_name;
+            document.getElementById('detail-phone').innerText = o.phone;
+            document.getElementById('detail-id').innerText = '#' + o.id;
+            document.getElementById('detail-time').innerText = o.created_at;
+
+            // 计算整单利润 (减去已退款的)
+            let totalProfit = 0;
+            let totalAmount = 0;
+            o.items.forEach(item => {
+                const realQty = item.qty_ordered - (item.qty_refunded || 0);
+                if (realQty > 0) {
+                    const amount = item.price * realQty;
+                    let cost = item.cost_price;
+                    if (item.price === 0) cost = 0;
+                    const profit = (item.price - cost) * realQty;
+                    totalAmount += amount;
+                    totalProfit += profit;
+                }
+            });
+
+            // 利润标签
+            const nameContainer = document.getElementById('detail-name').parentNode;
+            const oldProfit = document.getElementById('profit-tag');
+            if (oldProfit) oldProfit.remove();
+            const profitTag = document.createElement('span');
+            profitTag.id = 'profit-tag';
+            profitTag.style.cssText = 'background:#ecfdf5;color:#059669;font-size:13px;padding:4px 10px;border-radius:6px;font-weight:700;margin-left:12px;border:1px solid #a7f3d0;';
+            profitTag.innerHTML = `💰 利润: ¥${totalProfit.toFixed(2)}`;
+            document.getElementById('detail-name').after(profitTag);
+
+            // 状态标签
+            const isRefunded = o.status === 'Refunded';
+            const isPartial = o.status === 'Partial';
+            document.getElementById('refunded-tag').style.display = isRefunded ? 'inline-block' : 'none';
+            document.getElementById('partial-tag').style.display = isPartial ? 'inline-block' : 'none';
+
+            // 按钮显示
+            if (currentOrderTab === 'Completed') {
+                document.getElementById('refund-action-bar').style.display = isRefunded ? 'none' : 'flex';
+            } else {
+                document.getElementById('refund-action-bar').style.display = 'none';
+            }
+
+            const un = o.items.filter(i => i.qty_ordered > i.qty_picked);
+            const pi = o.items.filter(i => i.qty_picked > 0);
+
+            const renderItem = (i, isPending) => {
+                const refundInfo = i.qty_refunded > 0 ? `<span style="color:#c2410c;font-weight:bold;margin-left:8px;">(退 ${i.qty_refunded})</span>` : '';
+                const subtotal = i.price * (i.qty_ordered - (i.qty_refunded || 0));
+
+                return `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:16px;border:1px solid var(--border);border-radius:12px;margin-bottom:12px;background:#fff;">
+                <div style="flex:1;">
+                    <div style="font-weight:700;font-size:15px;margin-bottom:4px;">${i.product_name} /${i.unit || '个'} ${refundInfo}</div>
+                    <div style="font-size:12px;color:#6b7280;display:flex;gap:12px;">
+                        <span>单价: <b style="color:#333">¥${i.price}</b></span>
+                        <span>有效总额: <b style="color:var(--primary)">¥${subtotal.toFixed(2)}</b></span>
+                    </div>
+                </div>
+                <div style="text-align:right;">
+                     <div style="font-size:13px;color:#666;margin-bottom:6px;">订 <b>${i.qty_ordered}</b> / 取 <b>${i.qty_picked}</b></div>
+                     ${isPending ? `
+                        <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;">
+                            <span style="color:var(--danger);font-weight:700;font-size:12px;">剩 ${i.qty_ordered - i.qty_picked}</span>
+                            <div class="qty-control" style="transform:scale(0.9);transform-origin:right center;">
+                                <div class="qty-btn" onclick="upPick(${i.id},-1)">-</div>
+                                <input class="qty-val pickup-input" id="pk-${i.id}" value="0" data-id="${i.id}" data-max="${i.qty_ordered - i.qty_picked}" readonly>
+                                <div class="qty-btn" onclick="upPick(${i.id},1)">+</div>
+                            </div>
+                        </div>
+                     ` : `<div style="font-size:12px;color:#10b981;font-weight:700;">已取完</div>`}
+                </div>
+            </div>`;
+            };
+
+            document.getElementById('section-unpicked').innerHTML = un.length > 0
+                ? `<div style="font-weight:800;margin:24px 0 12px 0;color:var(--primary);">📦 待提取</div>` + un.map(i => renderItem(i, currentOrderTab === 'Pending')).join('')
+                : '';
+
+            document.getElementById('section-picked').innerHTML = pi.length > 0
+                ? `<div style="font-weight:800;margin:24px 0 12px 0;color:#6b7280;">✅ 已提取</div>` + pi.map(i => renderItem(i, false)).join('')
+                : '';
+        }
+        function upPick(id, d) { const el = document.getElementById(`pk-${id}`); let v = parseInt(el.value) + d; const m = parseInt(el.dataset.max); if (v < 0) v = 0; if (v > m) v = m; el.value = v; }
+
+        function submitPickup() {
+            const items = [];
+            document.querySelectorAll('.pickup-input').forEach(e => { const q = parseInt(e.value); if (q > 0) items.push({ item_id: parseInt(e.dataset.id), qty: q }) });
+            if (items.length === 0) return showToast("请输入数量", "error");
+
+            fetch('/api/pickup', { method: 'POST', body: JSON.stringify({ order_id: currentOrder.id, items }) })
+                .then(async r => {
+                    if (r.ok) {
+                        showToast('✅ 提货成功');
+                        currentOrder = null;
+                        document.getElementById('order-detail-card').style.display = 'none';
+                        document.getElementById('order-empty-tip').style.display = 'flex';
+                        searchOrders();
+                    } else {
+                        const msg = await r.text();
+                        showToast(msg, "error");
+                    }
+                });
+        }
+
+        // [核心修改] 退款功能
+        function doRefund() {
+            if (!currentOrder) return;
+            showConfirm(`⚠️ 确定要退款订单 #${currentOrder.id} 吗？\n所有商品将自动加回库存。`, () => {
+                fetch(`/api/refund?id=${currentOrder.id}`, { method: 'POST' })
+                    .then(async r => {
+                        if (r.ok) {
+                            showToast('✅ 退款成功，库存已恢复');
+                            searchOrders();
+                            setTimeout(() => {
+                                const idx = window.cachedOrders.findIndex(o => o.id === currentOrder.id);
+                                if (idx >= 0) selOrd(idx);
+                            }, 100);
+                        } else {
+                            const msg = await r.text();
+                            showToast("退款失败: " + msg, 'error');
+                        }
+                    })
+                    .catch(e => { showToast("网络错误: " + e.message, 'error'); });
+            });
+        }
+
+        // [新增] 补打小票功能
+        function doReprint() {
+            if (!currentOrder) return;
+            showToast("正在发送打印指令...", "success");
+            fetch(`/api/reprint?id=${currentOrder.id}`, { method: 'POST' })
+                .then(async r => {
+                    if (r.ok) {
+                        setTimeout(() => showToast("✅ 打印机已接收任务"), 500);
+                    } else {
+                        showToast("打印失败: " + await r.text(), "error");
+                    }
+                })
+                .catch(e => showToast("网络错误", "error"));
+        }
+
+        // [新增] 部分退款相关逻辑
+        function openPartialRefund() {
+            if (!currentOrder) return;
+
+            // 渲染可退商品列表 (只显示已提取且未完全退款的)
+            // 逻辑：可退 = qty_picked - qty_refunded
+            const validItems = currentOrder.items.filter(i => (i.qty_picked - (i.qty_refunded || 0)) > 0);
+
+            if (validItems.length === 0) {
+                return showToast("该订单没有可退的商品", "error");
+            }
+
+            const tbody = document.getElementById('partial-refund-list');
+            tbody.innerHTML = validItems.map(i => {
+                const maxRefund = i.qty_picked - (i.qty_refunded || 0);
+                return `
+            <tr>
+                <td style="padding:12px;">${i.product_name} /${i.unit || '个'}</td>
+                <td>${i.qty_picked}</td>
+                <td>${i.qty_refunded || 0}</td>
+                <td>
+                    <input type="number" class="refund-input" id="rf-${i.id}"
+                           min="0" max="${maxRefund}" placeholder="0"
+                           data-id="${i.id}" data-max="${maxRefund}">
+                    <span style="font-size:12px;color:#999;">(最多${maxRefund})</span>
+                </td>
+            </tr>`;
+            }).join('');
+
+            document.getElementById('partial-refund-modal').style.display = 'flex';
+        }
+
+        function submitPartialRefund() {
+            const items = [];
+            document.querySelectorAll('.refund-input').forEach(input => {
+                const qty = parseInt(input.value);
+                const max = parseInt(input.dataset.max);
+                const id = parseInt(input.dataset.id);
+                if (qty > 0) {
+                    if (qty > max) {
+                        showToast("退款数量超出限制", "error");
+                        return;
+                    }
+                    items.push({ item_id: id, qty: qty });
+                }
+            });
+
+            if (items.length === 0) return showToast("请输入退款数量", "error");
+
+            fetch('/api/refund/partial', {
+                method: 'POST',
+                body: JSON.stringify({ order_id: currentOrder.id, items: items })
+            }).then(async r => {
+                if (r.ok) {
+                    showToast("✅ 部分退款成功");
+                    document.getElementById('partial-refund-modal').style.display = 'none';
+                    searchOrders();
+                    setTimeout(() => {
+                        const idx = window.cachedOrders.findIndex(o => o.id === currentOrder.id);
+                        if (idx >= 0) selOrd(idx);
+                    }, 100);
+                } else {
+                    showToast("失败: " + await r.text(), "error");
+                }
+            });
+        }
+
+        // --- Procurement ---
+        function openProcurementModal() {
+            Promise.all([fetch('/api/procurement').then(r => r.json()), fetch('/api/inventory/list').then(r => r.json())]).then(([needs, inventory]) => {
+                if (!needs) needs = [];
+                procurementData = needs.map(item => {
+                    let toBuy = item.total_needed - item.current_stock;
+                    if (toBuy < 0) toBuy = 0;
+                    const exist = allProducts.find(p => p.id === item.product_id);
+                    return {
+                        id: item.product_id,
+                        product_name: item.product_name,
+                        current_stock: item.current_stock,
+                        total_needed: item.total_needed,
+                        to_buy: toBuy,
+                        default_cost: exist ? exist.cost_price : 0,
+                        default_price: exist ? exist.price : 0
+                    };
+                });
+                renderProcurementTable();
+                document.getElementById('procurement-modal').style.display = 'flex';
+            });
+        }
+
+        function renderProcurementTable() {
+            const el = document.getElementById('procurement-list');
+            if (procurementData.length === 0) { el.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px; color:#9ca3af;">无待采需求</td></tr>'; return; }
+            el.innerHTML = procurementData.map((item, idx) => `
+            <tr>
+                <td><input type="checkbox" class="procure-check" data-idx="${idx}"></td>
+                <td><b>${item.product_name} /${item.unit || '个'}</b></td>
+                <td style="color:#6b7280">${item.current_stock}</td>
+                <td style="font-weight:700;">${item.total_needed}</td>
+                <td style="color:#9ca3af;">${item.to_buy}</td>
+                <td><input type="number" class="procure-input" id="actual-${idx}" value="${item.to_buy > 0 ? item.to_buy : 0}" style="font-weight:800;color:var(--primary);border-color:var(--primary);"></td>
+                <td><input type="number" class="procure-input" id="cost-${idx}" value="${item.default_cost > 0 ? item.default_cost : ''}" placeholder="0.00"></td>
+                <td><input type="number" class="procure-input" id="price-${idx}" value="${item.default_price > 0 ? item.default_price : ''}" placeholder="0.00"></td>
+            </tr>
+        `).join('');
+        }
+        function toggleAllProcure(source) { document.querySelectorAll('.procure-check').forEach(c => c.checked = source.checked); }
+
+        function submitProcurement() {
+            const selected = [];
+            const checkboxes = document.querySelectorAll('.procure-check:checked');
+            if (checkboxes.length === 0) return showToast("请勾选要入库的商品", "error");
+            for (let cb of checkboxes) {
+                const idx = cb.dataset.idx;
+                const item = procurementData[idx];
+                const actualVal = document.getElementById(`actual-${idx}`).value;
+                const costVal = document.getElementById(`cost-${idx}`).value;
+                const priceVal = document.getElementById(`price-${idx}`).value;
+
+                if (!actualVal || !costVal || !priceVal) { showToast(`请填写【${item.product_name}】的完整信息`, "error"); return; }
+
+                selected.push({
+                    id: item.id,
+                    add_stock: parseFloat(actualVal),
+                    cost: parseFloat(costVal),
+                    price: parseFloat(priceVal)
+                });
+            }
+
+            fetch('/api/inventory/procure', { method: 'POST', body: JSON.stringify(selected) }).then(r => {
+                if (r.ok) {
+                    showToast("✅ 入库成功！");
+                    document.getElementById('procurement-modal').style.display = 'none';
+
+                    // 核心修复：入库后，自动同步最新价格到购物车
+                    fetch('/api/inventory/list').then(r => r.json()).then(list => {
+                        if (!list) list = []; // 防空
+                        allProducts = list;
+                        renderCategories(list);
+                        renderProductGrid(list);
+                        let updatedCount = 0;
+                        cart.forEach(cartItem => {
+                            const freshItem = list.find(p => p.id === cartItem.id);
+                            if (freshItem && cartItem.price === 0 && freshItem.price > 0) {
+                                cartItem.price = freshItem.price;
+                                cartItem.cost_price = freshItem.cost_price;
+                                updatedCount++;
+                            }
+                        });
+                        if (updatedCount > 0) {
+                            renderCart();
+                            showToast(`已自动同步 ${updatedCount} 个临时商品的最新价格`, "success");
+                        }
+                        loadInventory();
+                    });
+
+                } else { showToast("入库失败", "error"); }
+            });
+        }
+
+        // --- Inventory Fix ---
+        function toggleLowStock() {
+            showLowStockOnly = !showLowStockOnly;
+            const btn = document.getElementById('btn-low-stock');
+            if (showLowStockOnly) btn.classList.add('btn-warning-active');
+            else btn.classList.remove('btn-warning-active');
+            loadInventory();
+        }
+
+        function loadInventory(q = '') {
+            fetch(`/api/inventory/list?q=${q}`).then(r => r.json()).then(list => {
+                // [修复] 判空
+                if (!list) list = [];
+                allProducts = list;
+                renderCategories(list);
+
+                if (!q) list = list.filter(p => p.price > 0);
+                if (showLowStockOnly) list = list.filter(p => p.stock < 10);
+
+                if (currentCategory !== '全部') {
+                    list = list.filter(p => (p.category || '未分类') === currentCategory);
+                }
+
+                document.getElementById('inventory-list').innerHTML = list.map(p => `<tr><td><input type="checkbox" class="inv-check" value="${p.id}"></td><td style="padding:16px;">${p.id}</td><td><span style="background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:12px;">${p.category || '未分类'}</span></td><td>${p.barcode}</td><td><b>${p.name}</b></td><td>${p.unit || '个'}</td><td>${p.cost_price.toFixed(2)}</td><td><b>${p.price.toFixed(2)}</b></td><td><span class="${p.stock < 10 ? 'stock-warning' : ''}">${p.stock}</span></td><td><span style="color:var(--primary)">¥${(p.price - p.cost_price).toFixed(2)}</span></td><td style="text-align:right;"><button class="btn" style="padding:4px 8px;background:#eff6ff;color:var(--primary);" onclick='openProductModal(${JSON.stringify(p)})'>编辑</button> <button class="btn" style="padding:4px 8px;background:#fef2f2;color:var(--danger);" onclick='delProd(${p.id})'>删除</button></td></tr>`).join('');
+                document.getElementById('selectAllInv').checked = false; // reset select all on reload
+            });
+        }
+
+        function delProd(id) {
+            showConfirm('确定要删除该商品吗？此操作不可恢复。', () => {
+                fetch(`/api/inventory/delete?id=${id}`).then(r => r.ok ? (showToast("已删除"), loadInventory()) : showToast("失败", "error"));
+            });
+        }
+
+        function toggleAllInv(source) {
+            document.querySelectorAll('.inv-check').forEach(c => c.checked = source.checked);
+        }
+
+        function getSelectedInvIds() {
+            const temp = [];
+            document.querySelectorAll('.inv-check:checked').forEach(c => temp.push(parseInt(c.value)));
+            return temp;
+        }
+
+        function batchDelete() {
+            const ids = getSelectedInvIds();
+            if (ids.length === 0) return showToast("请先选择商品", "error");
+            showConfirm(`确定要删除选中的 ${ids.length} 个商品吗？\n如果商品有【未提取】的预定单，将中止删除操作！`, () => {
+                fetch('/api/inventory/batch-delete', { method: 'POST', body: JSON.stringify({ ids: ids }) })
+                    .then(r => r.json())
+                    .then(res => {
+                        if (res.success) { showToast(res.message); loadInventory(); }
+                        else showToast(res.message, "error");
+                    });
+            });
+        }
+
+        function batchChangeCategory() {
+            const ids = getSelectedInvIds();
+            if (ids.length === 0) return showToast("请先选择商品", "error");
+            document.getElementById('batch-cat-msg').innerText = `已选择 ${ids.length} 个商品，请输入它们的新分类：`;
+            document.getElementById('batch-cat-input').value = '';
+            document.getElementById('batch-category-modal').style.display = 'flex';
+            setTimeout(() => document.getElementById('batch-cat-input').focus(), 100);
+        }
+
+        function submitBatchCategory() {
+            const ids = getSelectedInvIds();
+            const newCat = document.getElementById('batch-cat-input').value.trim();
+            if (!newCat) return showToast("请输入分类名称", "error");
+            fetch('/api/inventory/batch-category', { method: 'POST', body: JSON.stringify({ ids: ids, category: newCat }) })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.success) {
+                        showToast(res.message);
+                        document.getElementById('batch-category-modal').style.display = 'none';
+                        loadInventory();
+                    }
+                    else showToast(res.message, "error");
+                });
+        }
+
+        // 3. 智能填充 datalist
+        function updateCategoryDatalist(list) {
+            const cats = [...new Set(list.map(p => p.category || '未分类'))];
+            const dl = document.getElementById('cat-list');
+            if (dl) {
+                dl.innerHTML = cats.map(c => `<option value="${c}">`).join('');
+            }
+        }
+
+        function openProductModal(p) {
+            document.getElementById('product-modal').style.display = 'flex';
+            document.getElementById('modal-title').innerText = p ? '✏️ 编辑' : '✨ 新增';
+
+            // 打开弹窗时，更新 datalist 选项
+            updateCategoryDatalist(allProducts);
+
+            document.getElementById('prod-id').value = p ? p.id : 0;
+            document.getElementById('prod-barcode').value = p ? p.barcode : '';
+            document.getElementById('prod-name').value = p ? p.name : '';
+            document.getElementById('prod-category').value = p ? p.category : '';
+            document.getElementById('prod-cost').value = p ? p.cost_price : '';
+            document.getElementById('prod-price').value = p ? p.price : '';
+            document.getElementById('prod-stock').value = p ? p.stock : '';
+            document.getElementById('prod-unit').value = p ? (p.unit || '个') : '个';
+            calcMargin();
+        }
+
+        function saveProduct() {
+            const p = {
+                id: parseInt(document.getElementById('prod-id').value) || 0,
+                barcode: document.getElementById('prod-barcode').value,
+                name: document.getElementById('prod-name').value,
+                category: document.getElementById('prod-category').value || '未分类',
+                cost_price: parseFloat(document.getElementById('prod-cost').value) || 0,
+                price: parseFloat(document.getElementById('prod-price').value) || 0,
+                stock: parseInt(document.getElementById('prod-stock').value) || 0,
+                unit: document.getElementById('prod-unit').value || '个'
+            };
+            fetch('/api/inventory/save', { method: 'POST', body: JSON.stringify(p) }).then(r => r.json()).then(res => { if (res.success) { showToast('✅ 保存成功'); document.getElementById('product-modal').style.display = 'none'; loadInventory(); loadProductGrid(); } else if (res.conflict_id) { showConfirm(res.message + '，跳转编辑？', () => { document.getElementById('product-modal').style.display = 'none'; fetch('/api/inventory/list').then(r => r.json()).then(l => openProductModal(l.find(x => x.id === res.conflict_id))); }) } else showToast(res.message, "error"); });
+        }
+
+        function calcMargin() { const c = parseFloat(document.getElementById('prod-cost').value) || 0, p = parseFloat(document.getElementById('prod-price').value) || 0; document.getElementById('margin-display').innerHTML = `<span>毛利: ¥${(p - c).toFixed(2)}</span><span>${p > 0 ? ((p - c) / p * 100).toFixed(0) : 0}%</span>`; }
+        function openBookModal() { if (cart.length === 0) return showToast("购物车为空", "error"); document.getElementById('booking-modal').style.display = 'flex'; }
+        function submitBooking() { const n = document.getElementById('book-name').value, p = document.getElementById('book-phone').value; if (!n) return showToast("姓名必填", "error"); fetch('/api/book', { method: 'POST', body: JSON.stringify({ customer_name: n, phone: p, items: cart }) }).then(r => r.ok ? (showToast('✅ 挂单成功'), document.getElementById('booking-modal').style.display = 'none', clearCart()) : showToast('失败', "error")); }
+        function restoreData(i) { if (!i.files[0]) return; showConfirm('恢复将覆盖数据，确定？', () => { const fd = new FormData(); fd.append('db_file', i.files[0]); fetch('/api/system/restore', { method: 'POST', body: fd }).then(async r => { showToast(await r.text()); if (r.ok) location.reload() }); }); i.value = ''; }
+        function loadReport(t, b) { if (b) { document.querySelectorAll('.time-filters button').forEach(x => x.classList.remove('active')); b.classList.add('active'); } fetch(`/api/report?type=${t}`).then(r => r.json()).then(d => { document.getElementById('rpt-revenue').innerText = '¥' + d.total_revenue.toFixed(2); document.getElementById('rpt-profit').innerText = '¥' + d.total_profit.toFixed(2); document.getElementById('rpt-count').innerText = d.order_count; if (chartInstanceBar) chartInstanceBar.destroy(); chartInstanceBar = new Chart(document.getElementById('barChart'), { type: 'bar', data: { labels: d.chart_labels, datasets: [{ label: '营收', data: d.chart_data, backgroundColor: '#10b981', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } }); if (chartInstancePie) chartInstancePie.destroy(); chartInstancePie = new Chart(document.getElementById('pieChart'), { type: 'doughnut', data: { labels: d.pie_labels, datasets: [{ data: d.pie_data, backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'] }] }, options: { responsive: true, maintainAspectRatio: false } }); }); }
+
+        // Init
+        loadProductGrid();
+    </script>
+</body>
+
+</html>
