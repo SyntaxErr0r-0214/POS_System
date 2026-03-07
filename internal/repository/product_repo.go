@@ -2,7 +2,9 @@ package repository
 
 import (
 	"database/sql"
+	"fmt"
 	"pos-demo/internal/model"
+	"strings"
 )
 
 type ProductRepo struct {
@@ -16,7 +18,7 @@ func NewProductRepo(db *sql.DB) *ProductRepo {
 // FindByBarcode 根据条码查找
 func (r *ProductRepo) FindByBarcode(code string) (*model.Product, error) {
 	var p model.Product
-	err := r.DB.QueryRow("SELECT id, barcode, name, category, price, cost_price, stock FROM products WHERE barcode = ?", code).Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock)
+	err := r.DB.QueryRow("SELECT id, barcode, name, category, price, cost_price, stock, unit FROM products WHERE barcode = ?", code).Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock, &p.Unit)
 	if err != nil {
 		return nil, err
 	}
@@ -26,7 +28,7 @@ func (r *ProductRepo) FindByBarcode(code string) (*model.Product, error) {
 // FindByID 根据ID查找
 func (r *ProductRepo) FindByID(tx *sql.Tx, id int) (*model.Product, error) {
 	var p model.Product
-	err := tx.QueryRow("SELECT id, name, barcode, category, price, cost_price, stock FROM products WHERE id = ?", id).Scan(&p.ID, &p.Name, &p.Barcode, &p.Category, &p.Price, &p.CostPrice, &p.Stock)
+	err := tx.QueryRow("SELECT id, name, barcode, category, price, cost_price, stock, unit FROM products WHERE id = ?", id).Scan(&p.ID, &p.Name, &p.Barcode, &p.Category, &p.Price, &p.CostPrice, &p.Stock, &p.Unit)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +43,7 @@ func (r *ProductRepo) DecreaseStock(tx *sql.Tx, productID int, qty int) error {
 
 // GetAll 获取所有商品
 func (r *ProductRepo) GetAll() ([]model.Product, error) {
-	rows, err := r.DB.Query("SELECT id, barcode, name, category, price, cost_price, stock FROM products ORDER BY id DESC")
+	rows, err := r.DB.Query("SELECT id, barcode, name, category, price, cost_price, stock, unit FROM products ORDER BY id DESC")
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +54,7 @@ func (r *ProductRepo) GetAll() ([]model.Product, error) {
 
 	for rows.Next() {
 		var p model.Product
-		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock)
+		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock, &p.Unit)
 		products = append(products, p)
 	}
 	return products, nil
@@ -61,7 +63,7 @@ func (r *ProductRepo) GetAll() ([]model.Product, error) {
 // SearchInventory 库存搜索 (支持搜分类名)
 func (r *ProductRepo) SearchInventory(query string) ([]model.Product, error) {
 	param := "%" + query + "%"
-	rows, err := r.DB.Query("SELECT id, barcode, name, category, price, cost_price, stock FROM products WHERE name LIKE ? OR barcode LIKE ? OR category LIKE ? ORDER BY id DESC", param, param, param)
+	rows, err := r.DB.Query("SELECT id, barcode, name, category, price, cost_price, stock, unit FROM products WHERE name LIKE ? OR barcode LIKE ? OR category LIKE ? ORDER BY id DESC", param, param, param)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +74,7 @@ func (r *ProductRepo) SearchInventory(query string) ([]model.Product, error) {
 
 	for rows.Next() {
 		var p model.Product
-		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock)
+		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock, &p.Unit)
 		list = append(list, p)
 	}
 	return list, nil
@@ -81,7 +83,7 @@ func (r *ProductRepo) SearchInventory(query string) ([]model.Product, error) {
 // Search 联想搜索
 func (r *ProductRepo) Search(query string) ([]model.Product, error) {
 	param := "%" + query + "%"
-	rows, err := r.DB.Query("SELECT id, barcode, name, category, price, cost_price, stock FROM products WHERE name LIKE ? OR barcode LIKE ? OR category LIKE ? ORDER BY id DESC LIMIT 10", param, param, param)
+	rows, err := r.DB.Query("SELECT id, barcode, name, category, price, cost_price, stock, unit FROM products WHERE name LIKE ? OR barcode LIKE ? OR category LIKE ? ORDER BY id DESC LIMIT 10", param, param, param)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +94,7 @@ func (r *ProductRepo) Search(query string) ([]model.Product, error) {
 
 	for rows.Next() {
 		var p model.Product
-		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock)
+		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock, &p.Unit)
 		list = append(list, p)
 	}
 	return list, nil
@@ -100,15 +102,21 @@ func (r *ProductRepo) Search(query string) ([]model.Product, error) {
 
 // Create 新增 (写入 Category)
 func (r *ProductRepo) Create(p model.Product) error {
-	_, err := r.DB.Exec("INSERT INTO products (barcode, name, category, price, cost_price, stock) VALUES (?, ?, ?, ?, ?, ?)",
-		p.Barcode, p.Name, p.Category, p.Price, p.CostPrice, p.Stock)
+	if p.Unit == "" {
+		p.Unit = "个"
+	}
+	_, err := r.DB.Exec("INSERT INTO products (barcode, name, category, price, cost_price, stock, unit) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		p.Barcode, p.Name, p.Category, p.Price, p.CostPrice, p.Stock, p.Unit)
 	return err
 }
 
 // Update 更新 (写入 Category)
 func (r *ProductRepo) Update(p model.Product) error {
-	_, err := r.DB.Exec("UPDATE products SET name=?, category=?, price=?, cost_price=?, stock=? WHERE id=?",
-		p.Name, p.Category, p.Price, p.CostPrice, p.Stock, p.ID)
+	if p.Unit == "" {
+		p.Unit = "个"
+	}
+	_, err := r.DB.Exec("UPDATE products SET name=?, category=?, price=?, cost_price=?, stock=?, unit=? WHERE id=?",
+		p.Name, p.Category, p.Price, p.CostPrice, p.Stock, p.Unit, p.ID)
 	return err
 }
 
@@ -118,14 +126,63 @@ func (r *ProductRepo) Delete(id int) error {
 	return err
 }
 
-// FindByName 根据名称查找
-func (r *ProductRepo) FindByName(name string) (*model.Product, error) {
+// FindByNameAndUnit 根据名称和单位查找
+func (r *ProductRepo) FindByNameAndUnit(name string, unit string) (*model.Product, error) {
 	var p model.Product
-	err := r.DB.QueryRow("SELECT id, barcode, name, category, price, cost_price, stock FROM products WHERE name = ?", name).Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock)
+	err := r.DB.QueryRow("SELECT id, barcode, name, category, price, cost_price, stock, unit FROM products WHERE name = ? AND unit = ?", name, unit).Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock, &p.Unit)
 	if err != nil {
 		return nil, err
 	}
 	return &p, nil
+}
+
+// BatchUpdateCategory 批量更新分类
+func (r *ProductRepo) BatchUpdateCategory(ids []int, category string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	// Create an IN clause with the correct number of placeholders
+	placeholders := make([]string, len(ids))
+	args := make([]interface{}, len(ids)+1)
+	args[0] = category
+	for i, id := range ids {
+		placeholders[i] = "?"
+		args[i+1] = id
+	}
+	query := fmt.Sprintf("UPDATE products SET category = ? WHERE id IN (%s)", strings.Join(placeholders, ","))
+
+	_, err := r.DB.Exec(query, args...)
+	return err
+}
+
+// BatchDelete 批量删除商品
+func (r *ProductRepo) BatchDelete(ids []int) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return err
+	}
+
+	placeholders := make([]string, len(ids))
+	args := make([]interface{}, len(ids))
+	for i, id := range ids {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	inClause := strings.Join(placeholders, ",")
+
+	// Delete from products
+	delQuery := fmt.Sprintf("DELETE FROM products WHERE id IN (%s)", inClause)
+	if _, err := tx.Exec(delQuery, args...); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // BatchProcure 批量采购入库

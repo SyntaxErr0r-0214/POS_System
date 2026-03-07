@@ -8,4 +8,5 @@ type Product struct {
 	Price     float64 `json:"price"`
 	CostPrice float64 `json:"cost_price"`
 	Stock     int     `json:"stock"`
+	Unit      string  `json:"unit"` // 新增：单位
 }

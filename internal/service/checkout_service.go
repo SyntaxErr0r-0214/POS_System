@@ -73,7 +73,10 @@ func (s *CheckoutService) Checkout(req model.CheckoutRequest) error {
 
 		item := model.OrderItem{
 			OrderID: int(orderID), ProductID: p.ID, ProductName: p.Name,
-			Price: finalPrice, QtyOrdered: itemReq.Qty, QtyPicked: itemReq.Qty,
+			Price: finalPrice, QtyOrdered: itemReq.Qty, QtyPicked: itemReq.Qty, Unit: p.Unit,
+		}
+		if itemReq.Unit != "" {
+			item.Unit = itemReq.Unit // 优先使用请求中传来的单位（针对临时商品）
 		}
 		if err := s.OrderRepo.CreateOrderItem(tx, item); err != nil {
 			return err
@@ -83,10 +86,15 @@ func (s *CheckoutService) Checkout(req model.CheckoutRequest) error {
 		totalPrice += subtotal
 
 		// [58mm] 双行模式，严格控制宽度
+		// 如果有单位，则在商品名称后附加单位展示
+		displayUnit := ""
+		if item.Unit != "" {
+			displayUnit = "/" + item.Unit
+		}
 		sb.WriteString(fmt.Sprintf("%s\n", p.Name))
 		// 缩进1格 | 单价(7位) | x数量 | 总价(8位)
-		// 示例:  5.00   x2      10.00
-		sb.WriteString(fmt.Sprintf(" %-7.2f x%-3d %8.2f\n", finalPrice, itemReq.Qty, subtotal))
+		// 示例:  5.00/个   x2      10.00
+		sb.WriteString(fmt.Sprintf(" %-7.2f%-3s x%-3d %8.2f\n", finalPrice, displayUnit, itemReq.Qty, subtotal))
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -124,7 +132,10 @@ func (s *CheckoutService) Book(req model.BookingRequest) error {
 
 		item := model.OrderItem{
 			OrderID: int(orderID), ProductID: p.ID, ProductName: p.Name,
-			Price: p.Price, QtyOrdered: itemReq.Qty, QtyPicked: 0,
+			Price: p.Price, QtyOrdered: itemReq.Qty, QtyPicked: 0, Unit: itemReq.Unit, // 预订商品带上单位
+		}
+		if item.Unit == "" {
+			item.Unit = p.Unit
 		}
 		if err := s.OrderRepo.CreateOrderItem(tx, item); err != nil {
 			return err

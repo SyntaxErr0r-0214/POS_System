@@ -125,3 +125,49 @@ func (h *ProductHandler) Procure(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Write([]byte("success"))
 }
+
+// BatchDeleteResponse 批量删除响应
+type BatchDeleteResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+// BatchDelete 批量删除
+func (h *ProductHandler) BatchDelete(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		IDs []int `json:"ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "数据格式错误", 400)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := h.Inventory.BatchDelete(req.IDs); err != nil {
+		json.NewEncoder(w).Encode(BatchDeleteResponse{Success: false, Message: err.Error()})
+		return
+	}
+	json.NewEncoder(w).Encode(BatchDeleteResponse{Success: true, Message: "批量删除成功"})
+}
+
+// BatchCategoryRequest 批量修改分类请求
+type BatchCategoryRequest struct {
+	IDs      []int  `json:"ids"`
+	Category string `json:"category"`
+}
+
+// BatchUpdateCategory 批量修改分类
+func (h *ProductHandler) BatchUpdateCategory(w http.ResponseWriter, r *http.Request) {
+	var req BatchCategoryRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "数据格式错误", 400)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := h.Inventory.BatchUpdateCategory(req.IDs, req.Category); err != nil {
+		json.NewEncoder(w).Encode(BatchDeleteResponse{Success: false, Message: err.Error()})
+		return
+	}
+	json.NewEncoder(w).Encode(BatchDeleteResponse{Success: true, Message: "批量修改分类成功"})
+}

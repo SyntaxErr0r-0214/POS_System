@@ -45,12 +45,16 @@ func (s *InventoryService) AddProduct(p model.Product) (CheckDuplicateResult, er
 		return CheckDuplicateResult{IsDuplicate: true, ExistingID: exist.ID, Message: "条码已存在"}, nil
 	}
 
-	// 3. 查重：名称
+	// 3. 查重：名称和单位组合
 	if p.Name == "" {
 		return CheckDuplicateResult{}, errors.New("商品名称不能为空")
 	}
-	if exist, _ := s.Repo.FindByName(p.Name); exist != nil {
-		return CheckDuplicateResult{IsDuplicate: true, ExistingID: exist.ID, Message: "商品名称已存在"}, nil
+	unitToCheck := p.Unit
+	if unitToCheck == "" {
+		unitToCheck = "个"
+	}
+	if exist, _ := s.Repo.FindByNameAndUnit(p.Name, unitToCheck); exist != nil {
+		return CheckDuplicateResult{IsDuplicate: true, ExistingID: exist.ID, Message: fmt.Sprintf("商品名称 '%s' (单位: %s) 已存在", p.Name, unitToCheck)}, nil
 	}
 
 	// 4. 执行保存
@@ -89,4 +93,40 @@ func (s *InventoryService) DeleteProduct(id int) error {
 		return errors.New("解除历史关联失败")
 	}
 	return s.Repo.Delete(id)
+}
+
+// BatchDelete 批量删除
+func (s *InventoryService) BatchDelete(ids []int) error {
+	if len(ids) == 0 {
+		return errors.New("未选择任何商品")
+	}
+
+	// Check if ANY product has pending orders
+	for _, id := range ids {
+		hasPending, err := s.OrderRepo.HasActiveOrders(id)
+		if err != nil {
+			return err
+		}
+		if hasPending {
+			return fmt.Errorf("无法批量删除：商品(ID:%d)存在于未完成的预订订单中。请先取消勾选该商品。", id)
+		}
+	}
+
+	// Unlink from history iteratively
+	for _, id := range ids {
+		if err := s.OrderRepo.UnlinkProduct(id); err != nil {
+			// Ignore individual unlink errors or return them? Best to return to avoid silent failure.
+			return fmt.Errorf("商品(ID:%d)解除历史关联失败", id)
+		}
+	}
+
+	return s.Repo.BatchDelete(ids)
+}
+
+// BatchUpdateCategory 批量更新分类
+func (s *InventoryService) BatchUpdateCategory(ids []int, category string) error {
+	if len(ids) == 0 {
+		return errors.New("未选择任何商品")
+	}
+	return s.Repo.BatchUpdateCategory(ids, category)
 }

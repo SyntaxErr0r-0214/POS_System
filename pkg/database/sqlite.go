@@ -34,7 +34,8 @@ func Init() *sql.DB {
 		category TEXT,
 		price REAL,
 		cost_price REAL DEFAULT 0,
-		stock INTEGER
+		stock INTEGER,
+		unit TEXT DEFAULT '个'
 	);
 	CREATE TABLE IF NOT EXISTS orders (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,6 +52,7 @@ func Init() *sql.DB {
 		price REAL,
 		qty_ordered INTEGER,
 		qty_picked INTEGER,
+		unit TEXT,
 		FOREIGN KEY(order_id) REFERENCES orders(id)
 	);
 	`
@@ -78,6 +80,28 @@ func Init() *sql.DB {
 		_, err = db.Exec("ALTER TABLE orders ADD COLUMN daily_seq INTEGER DEFAULT 0")
 		if err != nil {
 			log.Fatal("升级数据库(daily_seq)失败:", err)
+		}
+	}
+
+	// 4. [新增] 检查并添加 products.unit 列
+	var countPUnit int
+	err = db.QueryRow("SELECT count(*) FROM pragma_table_info('products') WHERE name='unit'").Scan(&countPUnit)
+	if countPUnit == 0 {
+		log.Println("正在升级数据库: 添加 products.unit 列...")
+		_, err = db.Exec("ALTER TABLE products ADD COLUMN unit TEXT DEFAULT '个'")
+		if err != nil {
+			log.Fatal("升级数据库(products.unit)失败:", err)
+		}
+	}
+
+	// 5. [新增] 检查并添加 order_items.unit 列
+	var countOUnit int
+	err = db.QueryRow("SELECT count(*) FROM pragma_table_info('order_items') WHERE name='unit'").Scan(&countOUnit)
+	if countOUnit == 0 {
+		log.Println("正在升级数据库: 添加 order_items.unit 列...")
+		_, err = db.Exec("ALTER TABLE order_items ADD COLUMN unit TEXT DEFAULT '个'")
+		if err != nil {
+			log.Fatal("升级数据库(order_items.unit)失败:", err)
 		}
 	}
 
