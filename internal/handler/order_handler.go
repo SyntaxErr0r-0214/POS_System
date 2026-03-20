@@ -143,3 +143,30 @@ func (h *OrderHandler) DoPartialRefund(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Write([]byte("退款成功"))
 }
+
+// DeleteOrder 删除单个订单接口
+func (h *OrderHandler) DeleteOrder(w http.ResponseWriter, r *http.Request) {
+	idStr := r.URL.Query().Get("id")
+	if idStr == "" {
+		http.Error(w, "缺少订单ID", 400)
+		return
+	}
+
+	var orderID int
+	fmt.Sscanf(idStr, "%d", &orderID)
+
+	if err := h.Service.DeleteOrder(orderID); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.Write([]byte("删除成功"))
+}
+
+// ClearHistory 清空历史记录接口
+func (h *OrderHandler) ClearHistory(w http.ResponseWriter, r *http.Request) {
+	if err := h.Service.ClearHistoryOrders(); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.Write([]byte("清空成功"))
+}

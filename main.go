@@ -60,6 +60,9 @@ func main() {
 	http.HandleFunc("/api/refund", oHandler.Refund)
 	// 👇 新增：采购清单接口
 	http.HandleFunc("/api/procurement", oHandler.GetProcurement)
+	// 👇 新增：删除和清空
+	http.HandleFunc("/api/order/delete", oHandler.DeleteOrder)
+	http.HandleFunc("/api/order/clear_history", oHandler.ClearHistory)
 
 	http.HandleFunc("/api/inventory/search", pHandler.SearchProduct)
 	http.HandleFunc("/api/inventory/list", pHandler.ListInventory)

@@ -73,7 +73,7 @@ func (s *CheckoutService) Checkout(req model.CheckoutRequest) error {
 
 		item := model.OrderItem{
 			OrderID: int(orderID), ProductID: p.ID, ProductName: p.Name,
-			Price: finalPrice, QtyOrdered: itemReq.Qty, QtyPicked: itemReq.Qty, Unit: p.Unit,
+			Price: finalPrice, QtyOrdered: itemReq.Qty, QtyPicked: itemReq.Qty, QtyPaid: itemReq.Qty, Unit: p.Unit,
 		}
 		if itemReq.Unit != "" {
 			item.Unit = itemReq.Unit // 优先使用请求中传来的单位（针对临时商品）
@@ -132,7 +132,7 @@ func (s *CheckoutService) Book(req model.BookingRequest) error {
 
 		item := model.OrderItem{
 			OrderID: int(orderID), ProductID: p.ID, ProductName: p.Name,
-			Price: p.Price, QtyOrdered: itemReq.Qty, QtyPicked: 0, Unit: itemReq.Unit, // 预订商品带上单位
+			Price: p.Price, QtyOrdered: itemReq.Qty, QtyPicked: 0, QtyPaid: itemReq.QtyPaid, Unit: itemReq.Unit, // 预订商品带上单位和已付款数
 		}
 		if item.Unit == "" {
 			item.Unit = p.Unit
@@ -459,4 +459,32 @@ func (s *CheckoutService) printAsync(content string) {
 			log.Println("打印失败:", err)
 		}
 	}()
+}
+
+// DeleteOrder 删除订单
+func (s *CheckoutService) DeleteOrder(orderID int) error {
+	tx, err := s.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := s.OrderRepo.DeleteOrder(tx, orderID); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// ClearHistoryOrders 清空历史记录
+func (s *CheckoutService) ClearHistoryOrders() error {
+	tx, err := s.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := s.OrderRepo.ClearHistoryOrders(tx); err != nil {
+		return err
+	}
+	return tx.Commit()
 }

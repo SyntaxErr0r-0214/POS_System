@@ -886,6 +886,10 @@
                         style="width:100%; padding:10px; border:1px solid #e5e7eb; border-radius:8px; font-family:inherit;"
                         onchange="searchOrders()">
                 </div>
+                <!-- 新增：清空历史记录按钮，一开始隐藏 -->
+                <button class="btn btn-danger-ghost" id="btn-clear-history"
+                    style="width:100%; margin-top:12px; justify-content:center; display:none;"
+                    onclick="clearHistoryOrders()">🗑️ 清空历史记录</button>
 
                 <button class="btn btn-indigo" style="width:100%; margin-top:12px; justify-content:center;"
                     onclick="openProcurementModal()">📋 打开采购入库单</button>
@@ -928,7 +932,11 @@
                     <button class="btn btn-danger-ghost" style="padding:14px 28px;" onclick="doRefund()">⚠️
                         全单退款</button>
                 </div>
-                <div style="margin-top:20px; padding-top:20px; border-top:1px dashed var(--border); text-align:right;">
+                <div
+                    style="margin-top:20px; padding-top:20px; border-top:1px dashed var(--border); display:flex; justify-content:flex-end; gap:12px;">
+                    <!-- 新增删除订单按钮，一开始隐藏，由JS判定显示 -->
+                    <button class="btn btn-danger-ghost" id="btn-delete-order" style="display:none;"
+                        onclick="deleteCurrentOrder()">🗑️ 删除订单</button>
                     <button class="btn btn-outline" onclick="doReprint()">🖨️ 补打小票</button>
                 </div>
             </div>
@@ -991,7 +999,7 @@
     <div id="page-report" class="page" style="flex-direction:column;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
             <h2 style="margin:0; font-size:28px; font-weight:800;">📊 营收数据</h2>
-            <div style="display:flex; gap:8px;"><button class="btn btn-outline"
+            <div class="time-filters" style="display:flex; gap:8px;"><button class="btn btn-outline"
                     onclick="loadReport('day', this)">今日</button><button class="btn btn-outline"
                     onclick="loadReport('week', this)">本周</button><button class="btn btn-outline"
                     onclick="loadReport('month', this)">本月</button></div>
@@ -1041,10 +1049,17 @@
     </div>
 
     <div class="modal-overlay" id="booking-modal">
-        <div class="modal">
+        <div class="modal" style="width:520px;">
             <h3>新建预订</h3>
             <div class="form-group"><label>客户姓名</label><input id="book-name"></div>
             <div class="form-group"><label>联系电话</label><input id="book-phone"></div>
+            <div style="margin-bottom:20px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <label style="font-weight:700;font-size:14px;">💰 预付款标记 <span style="font-weight:400;color:var(--text-sub);font-size:12px;">(可选)</span></label>
+                    <label style="font-size:13px;cursor:pointer;color:var(--primary);font-weight:600;"><input type="checkbox" id="book-pay-all" onchange="toggleBookPayAll(this)" style="margin-right:4px;">全部已付</label>
+                </div>
+                <div id="book-items-list" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;padding:8px;"></div>
+            </div>
             <div class="modal-footer"><button class="btn btn-outline"
                     onclick="document.getElementById('booking-modal').style.display='none'">取消</button><button
                     class="btn btn-primary" onclick="submitBooking()">确定挂单</button></div>
@@ -1291,15 +1306,20 @@
             document.getElementById('pickup-action-bar').style.display = 'none';
             document.getElementById('refund-action-bar').style.display = 'none';
 
+            // 新增：只有在选中 Completed (历史记录) 时才显示清空历史按钮
+            const clearHistoryBtn = document.getElementById('btn-clear-history');
+
             if (s === 'Pending') {
                 dateBox.style.display = 'none';
                 dateInput.value = ''; // 清空日期
                 document.getElementById('pickup-action-bar').style.display = 'block';
+                if (clearHistoryBtn) clearHistoryBtn.style.display = 'none';
             } else {
                 dateBox.style.display = 'block';
                 if (!dateInput.value) {
                     dateInput.valueAsDate = new Date();
                 }
+                if (clearHistoryBtn) clearHistoryBtn.style.display = 'flex';
             }
 
             currentOrder = null;
@@ -1312,14 +1332,16 @@
             const q = document.getElementById('order-search').value;
             const date = document.getElementById('order-date-picker').value;
 
-            fetch(`/api/orders?status=${currentOrderTab}&q=${q}&date=${date}&_t=${Date.now()}`).then(r => r.json()).then(l => {
+            return fetch(`/api/orders?status=${currentOrderTab}&q=${q}&date=${date}&_t=${Date.now()}`).then(r => r.json()).then(l => {
                 if (!l) l = [];
                 document.getElementById('order-list').innerHTML = l.map((o, i) => {
                     const isRefunded = o.status === 'Refunded';
                     const isPartial = o.status === 'Partial';
 
                     let cardClass = isRefunded ? 'refunded' : '';
+                    const isPending = o.status === 'Pending';
                     let badge = isRefunded ? '<span class="refund-badge">已退款</span>' : (isPartial ? '<span class="partial-badge">部分退款</span>' : '');
+                    if (isPending) badge = '<span style="background:#fef3c7;color:#d97706;font-size:12px;padding:2px 6px;border-radius:4px;font-weight:700;border:1px solid #fcd34d;margin-left:4px;">预</span>' + badge;
 
                     // [新增] 显示流水号逻辑
                     let idDisplay = `#${o.id}`;
@@ -1343,6 +1365,7 @@
                 </div>`
                 }).join('');
                 window.cachedOrders = l;
+                return l;
             });
         }
 
@@ -1356,7 +1379,12 @@
 
             document.getElementById('detail-name').innerText = o.customer_name;
             document.getElementById('detail-phone').innerText = o.phone;
-            document.getElementById('detail-id').innerText = '#' + o.id;
+            let detailIdText = o.daily_seq > 0 ? `#${o.daily_seq}` : `#${o.id}`;
+            let detailIdHTML = detailIdText;
+            if (o.status === 'Pending') {
+                detailIdHTML += ' <span style="background:#fef3c7;color:#d97706;font-size:12px;padding:2px 6px;border-radius:4px;font-weight:700;border:1px solid #fcd34d;">预</span>';
+            }
+            document.getElementById('detail-id').innerHTML = detailIdHTML;
             document.getElementById('detail-time').innerText = o.created_at;
 
             // 计算整单利润 (减去已退款的)
@@ -1391,10 +1419,13 @@
             document.getElementById('partial-tag').style.display = isPartial ? 'inline-block' : 'none';
 
             // 按钮显示
+            const deleteOrderBtn = document.getElementById('btn-delete-order');
             if (currentOrderTab === 'Completed') {
                 document.getElementById('refund-action-bar').style.display = isRefunded ? 'none' : 'flex';
+                if (deleteOrderBtn) deleteOrderBtn.style.display = 'none';
             } else {
                 document.getElementById('refund-action-bar').style.display = 'none';
+                if (deleteOrderBtn) deleteOrderBtn.style.display = 'inline-flex';
             }
 
             const un = o.items.filter(i => i.qty_ordered > i.qty_picked);
@@ -1404,10 +1435,21 @@
                 const refundInfo = i.qty_refunded > 0 ? `<span style="color:#c2410c;font-weight:bold;margin-left:8px;">(退 ${i.qty_refunded})</span>` : '';
                 const subtotal = i.price * (i.qty_ordered - (i.qty_refunded || 0));
 
+                // 结算状态徽章
+                let payBadge = '';
+                const qtyPaid = i.qty_paid || 0;
+                if (qtyPaid >= i.qty_ordered && i.qty_ordered > 0) {
+                    payBadge = '<span style="background:#dcfce7;color:#16a34a;font-size:11px;padding:2px 6px;border-radius:4px;font-weight:700;margin-left:6px;">已结算</span>';
+                } else if (qtyPaid > 0) {
+                    payBadge = `<span style="background:#fff7ed;color:#c2410c;font-size:11px;padding:2px 6px;border-radius:4px;font-weight:700;border:1px solid #fdba74;margin-left:6px;">部分结算 (${qtyPaid}/${i.qty_ordered})</span>`;
+                } else if (o.status === 'Pending') {
+                    payBadge = '<span style="background:#f3f4f6;color:#6b7280;font-size:11px;padding:2px 6px;border-radius:4px;font-weight:700;margin-left:6px;">未结算</span>';
+                }
+
                 return `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:16px;border:1px solid var(--border);border-radius:12px;margin-bottom:12px;background:#fff;">
                 <div style="flex:1;">
-                    <div style="font-weight:700;font-size:15px;margin-bottom:4px;">${i.product_name} /${i.unit || '个'} ${refundInfo}</div>
+                    <div style="font-weight:700;font-size:15px;margin-bottom:4px;">${i.product_name} /${i.unit || '个'} ${refundInfo} ${payBadge}</div>
                     <div style="font-size:12px;color:#6b7280;display:flex;gap:12px;">
                         <span>单价: <b style="color:#333">¥${i.price}</b></span>
                         <span>有效总额: <b style="color:var(--primary)">¥${subtotal.toFixed(2)}</b></span>
@@ -1436,6 +1478,38 @@
             document.getElementById('section-picked').innerHTML = pi.length > 0
                 ? `<div style="font-weight:800;margin:24px 0 12px 0;color:#6b7280;">✅ 已提取</div>` + pi.map(i => renderItem(i, false)).join('')
                 : '';
+
+            // 结算概览合计区域
+            let summaryHTML = '';
+            if (o.status === 'Pending' || o.status === 'Completed') {
+                let grandTotal = 0, paidTotal = 0;
+                o.items.forEach(item => {
+                    const effectiveQty = item.qty_ordered - (item.qty_refunded || 0);
+                    grandTotal += item.price * effectiveQty;
+                    const paidQty = Math.min(item.qty_paid || 0, effectiveQty);
+                    paidTotal += item.price * paidQty;
+                });
+                const unpaidTotal = grandTotal - paidTotal;
+                summaryHTML = `
+                <div style="margin-top:24px;padding:20px;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border:1px solid #a7f3d0;border-radius:16px;">
+                    <div style="font-weight:800;font-size:15px;margin-bottom:16px;color:#065f46;">💰 结算概览</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;text-align:center;">
+                        <div style="background:white;padding:14px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+                            <div style="font-size:11px;color:#6b7280;font-weight:600;margin-bottom:4px;">合计金额</div>
+                            <div style="font-size:20px;font-weight:800;color:#1f2937;">¥${grandTotal.toFixed(2)}</div>
+                        </div>
+                        <div style="background:white;padding:14px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+                            <div style="font-size:11px;color:#16a34a;font-weight:600;margin-bottom:4px;">✅ 已结算</div>
+                            <div style="font-size:20px;font-weight:800;color:#16a34a;">¥${paidTotal.toFixed(2)}</div>
+                        </div>
+                        <div style="background:white;padding:14px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+                            <div style="font-size:11px;color:#dc2626;font-weight:600;margin-bottom:4px;">⏳ 未结算</div>
+                            <div style="font-size:20px;font-weight:800;color:${unpaidTotal > 0 ? '#dc2626' : '#16a34a'};">¥${unpaidTotal.toFixed(2)}</div>
+                        </div>
+                    </div>
+                </div>`;
+            }
+            document.getElementById('section-picked').innerHTML += summaryHTML;
         }
         function upPick(id, d) { const el = document.getElementById(`pk-${id}`); let v = parseInt(el.value) + d; const m = parseInt(el.dataset.max); if (v < 0) v = 0; if (v > m) v = m; el.value = v; }
 
@@ -1444,14 +1518,19 @@
             document.querySelectorAll('.pickup-input').forEach(e => { const q = parseInt(e.value); if (q > 0) items.push({ item_id: parseInt(e.dataset.id), qty: q }) });
             if (items.length === 0) return showToast("请输入数量", "error");
 
+            const savedOrderId = currentOrder.id;
             fetch('/api/pickup', { method: 'POST', body: JSON.stringify({ order_id: currentOrder.id, items }) })
                 .then(async r => {
                     if (r.ok) {
                         showToast('✅ 提货成功');
-                        currentOrder = null;
-                        document.getElementById('order-detail-card').style.display = 'none';
-                        document.getElementById('order-empty-tip').style.display = 'flex';
-                        searchOrders();
+                        searchOrders().then(() => {
+                            const idx = window.cachedOrders ? window.cachedOrders.findIndex(o => o.id === savedOrderId) : -1;
+                            if (idx >= 0) selOrd(idx);
+                            else {
+                                document.getElementById('order-detail-card').style.display = 'none';
+                                document.getElementById('order-empty-tip').style.display = 'flex';
+                            }
+                        });
                     } else {
                         const msg = await r.text();
                         showToast(msg, "error");
@@ -1459,19 +1538,18 @@
                 });
         }
 
-        // [核心修改] 退款功能
         function doRefund() {
             if (!currentOrder) return;
+            const savedOrderId = currentOrder.id;
             showConfirm(`⚠️ 确定要退款订单 #${currentOrder.id} 吗？\n所有商品将自动加回库存。`, () => {
                 fetch(`/api/refund?id=${currentOrder.id}`, { method: 'POST' })
                     .then(async r => {
                         if (r.ok) {
                             showToast('✅ 退款成功，库存已恢复');
-                            searchOrders();
-                            setTimeout(() => {
-                                const idx = window.cachedOrders.findIndex(o => o.id === currentOrder.id);
+                            searchOrders().then(() => {
+                                const idx = window.cachedOrders ? window.cachedOrders.findIndex(o => o.id === savedOrderId) : -1;
                                 if (idx >= 0) selOrd(idx);
-                            }, 100);
+                            });
                         } else {
                             const msg = await r.text();
                             showToast("退款失败: " + msg, 'error');
@@ -1543,7 +1621,7 @@
                 }
             });
 
-            if (items.length === 0) return showToast("请输入退款数量", "error");
+            const savedOrderId = currentOrder.id;
 
             fetch('/api/refund/partial', {
                 method: 'POST',
@@ -1552,14 +1630,52 @@
                 if (r.ok) {
                     showToast("✅ 部分退款成功");
                     document.getElementById('partial-refund-modal').style.display = 'none';
-                    searchOrders();
-                    setTimeout(() => {
-                        const idx = window.cachedOrders.findIndex(o => o.id === currentOrder.id);
+                    searchOrders().then(() => {
+                        const idx = window.cachedOrders ? window.cachedOrders.findIndex(o => o.id === savedOrderId) : -1;
                         if (idx >= 0) selOrd(idx);
-                    }, 100);
+                    });
                 } else {
                     showToast("失败: " + await r.text(), "error");
                 }
+            });
+        }
+
+        // [新增] 删除订单逻辑
+        function deleteCurrentOrder() {
+            if (!currentOrder) return;
+            showConfirm(`⚠️ 确定要彻底删除订单 #${currentOrder.id} 吗？\n删除后不可恢复！`, () => {
+                fetch(`/api/order/delete?id=${currentOrder.id}`, { method: 'POST' })
+                    .then(async r => {
+                        if (r.ok) {
+                            showToast('✅ 删单成功');
+                            currentOrder = null;
+                            document.getElementById('order-detail-card').style.display = 'none';
+                            document.getElementById('order-empty-tip').style.display = 'flex';
+                            searchOrders();
+                        } else {
+                            showToast("删除失败: " + await r.text(), 'error');
+                        }
+                    })
+                    .catch(e => { showToast("网络错误: " + e.message, 'error'); });
+            });
+        }
+
+        // [新增] 清空历史记录逻辑
+        function clearHistoryOrders() {
+            showConfirm(`⚠️ 危险操作！确定要清空所有历史记录吗？\n进行中的订单不会被删除，此操作不可逆转！`, () => {
+                fetch(`/api/order/clear_history`, { method: 'POST' })
+                    .then(async r => {
+                        if (r.ok) {
+                            showToast('✅ 已清空历史记录');
+                            currentOrder = null;
+                            document.getElementById('order-detail-card').style.display = 'none';
+                            document.getElementById('order-empty-tip').style.display = 'flex';
+                            searchOrders();
+                        } else {
+                            showToast("清空失败: " + await r.text(), 'error');
+                        }
+                    })
+                    .catch(e => { showToast("网络错误: " + e.message, 'error'); });
             });
         }
 
@@ -1650,6 +1766,15 @@
                             showToast(`已自动同步 ${updatedCount} 个临时商品的最新价格`, "success");
                         }
                         loadInventory();
+
+                        // 如果当前停留在订单页且选中了订单，刷新最新状态
+                        if (typeof currentOrder !== 'undefined' && currentOrder && typeof searchOrders === 'function') {
+                            const savedOrderId = currentOrder.id;
+                            searchOrders().then(() => {
+                                const idx = window.cachedOrders ? window.cachedOrders.findIndex(o => o.id === savedOrderId) : -1;
+                                if (idx >= 0) selOrd(idx);
+                            });
+                        }
                     });
 
                 } else { showToast("入库失败", "error"); }
@@ -1780,10 +1905,37 @@
         }
 
         function calcMargin() { const c = parseFloat(document.getElementById('prod-cost').value) || 0, p = parseFloat(document.getElementById('prod-price').value) || 0; document.getElementById('margin-display').innerHTML = `<span>毛利: ¥${(p - c).toFixed(2)}</span><span>${p > 0 ? ((p - c) / p * 100).toFixed(0) : 0}%</span>`; }
-        function openBookModal() { if (cart.length === 0) return showToast("购物车为空", "error"); document.getElementById('booking-modal').style.display = 'flex'; }
-        function submitBooking() { const n = document.getElementById('book-name').value, p = document.getElementById('book-phone').value; if (!n) return showToast("姓名必填", "error"); fetch('/api/book', { method: 'POST', body: JSON.stringify({ customer_name: n, phone: p, items: cart }) }).then(r => r.ok ? (showToast('✅ 挂单成功'), document.getElementById('booking-modal').style.display = 'none', clearCart()) : showToast('失败', "error")); }
+        function openBookModal() {
+            if (cart.length === 0) return showToast("购物车为空", "error");
+            document.getElementById('booking-modal').style.display = 'flex';
+            document.getElementById('book-pay-all').checked = false;
+            // 渲染购物车商品列表，带勾选框
+            const listEl = document.getElementById('book-items-list');
+            listEl.innerHTML = cart.map((c, idx) => {
+                const price = (c.price || 0) * c.qty;
+                return `<div style="display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:1px solid #f3f4f6;">
+                    <input type="checkbox" class="book-pay-cb" data-idx="${idx}" style="width:16px;height:16px;cursor:pointer;">
+                    <div style="flex:1;font-size:14px;"><b>${c.name}</b> <span style="color:#999;">x${c.qty}</span></div>
+                    <div style="font-weight:700;color:var(--primary);font-size:14px;">¥${price.toFixed(2)}</div>
+                </div>`;
+            }).join('');
+        }
+        function toggleBookPayAll(el) {
+            document.querySelectorAll('.book-pay-cb').forEach(cb => cb.checked = el.checked);
+        }
+        function submitBooking() {
+            const n = document.getElementById('book-name').value, p = document.getElementById('book-phone').value;
+            if (!n) return showToast("姓名必填", "error");
+            // 构建 items，带上 qty_paid
+            const items = cart.map((c, idx) => {
+                const cb = document.querySelector(`.book-pay-cb[data-idx="${idx}"]`);
+                return { id: c.id, qty: c.qty, unit: c.unit || '', qty_paid: (cb && cb.checked) ? c.qty : 0 };
+            });
+            fetch('/api/book', { method: 'POST', body: JSON.stringify({ customer_name: n, phone: p, items }) })
+                .then(r => r.ok ? (showToast('✅ 挂单成功'), document.getElementById('booking-modal').style.display = 'none', clearCart()) : showToast('失败', "error"));
+        }
         function restoreData(i) { if (!i.files[0]) return; showConfirm('恢复将覆盖数据，确定？', () => { const fd = new FormData(); fd.append('db_file', i.files[0]); fetch('/api/system/restore', { method: 'POST', body: fd }).then(async r => { showToast(await r.text()); if (r.ok) location.reload() }); }); i.value = ''; }
-        function loadReport(t, b) { if (b) { document.querySelectorAll('.time-filters button').forEach(x => x.classList.remove('active')); b.classList.add('active'); } fetch(`/api/report?type=${t}`).then(r => r.json()).then(d => { document.getElementById('rpt-revenue').innerText = '¥' + d.total_revenue.toFixed(2); document.getElementById('rpt-profit').innerText = '¥' + d.total_profit.toFixed(2); document.getElementById('rpt-count').innerText = d.order_count; if (chartInstanceBar) chartInstanceBar.destroy(); chartInstanceBar = new Chart(document.getElementById('barChart'), { type: 'bar', data: { labels: d.chart_labels, datasets: [{ label: '营收', data: d.chart_data, backgroundColor: '#10b981', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } }); if (chartInstancePie) chartInstancePie.destroy(); chartInstancePie = new Chart(document.getElementById('pieChart'), { type: 'doughnut', data: { labels: d.pie_labels, datasets: [{ data: d.pie_data, backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'] }] }, options: { responsive: true, maintainAspectRatio: false } }); }); }
+        function loadReport(t, b) { const btns = document.querySelectorAll('.time-filters button'); btns.forEach(x => x.classList.remove('active')); if (b) { b.classList.add('active'); } else { const idx = { 'day': 0, 'week': 1, 'month': 2 }; if (idx[t] !== undefined && btns[idx[t]]) btns[idx[t]].classList.add('active'); } fetch(`/api/report?type=${t}`).then(r => r.json()).then(d => { document.getElementById('rpt-revenue').innerText = '¥' + d.total_revenue.toFixed(2); document.getElementById('rpt-profit').innerText = '¥' + d.total_profit.toFixed(2); document.getElementById('rpt-count').innerText = d.order_count; if (chartInstanceBar) chartInstanceBar.destroy(); chartInstanceBar = new Chart(document.getElementById('barChart'), { type: 'bar', data: { labels: d.chart_labels, datasets: [{ label: '营收', data: d.chart_data, backgroundColor: '#10b981', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } }); if (chartInstancePie) chartInstancePie.destroy(); chartInstancePie = new Chart(document.getElementById('pieChart'), { type: 'doughnut', data: { labels: d.pie_labels, datasets: [{ data: d.pie_data, backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'] }] }, options: { responsive: true, maintainAspectRatio: false } }); }); }
 
         // Init
         loadProductGrid();

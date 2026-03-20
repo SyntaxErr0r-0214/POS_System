@@ -24,7 +24,8 @@ type OrderItem struct {
 	QtyOrdered  int     `json:"qty_ordered"`
 	QtyPicked   int     `json:"qty_picked"`
 	QtyRefunded int     `json:"qty_refunded"`
-	Unit        string  `json:"unit"` // 新增：单位
+	Unit        string  `json:"unit"`     // 新增：单位
+	QtyPaid     int     `json:"qty_paid"` // 新增：已付款数量
 }
 
 // CheckoutRequest 结算请求
@@ -42,9 +43,10 @@ type BookingRequest struct {
 	CustomerName string `json:"customer_name"`
 	Phone        string `json:"phone"`
 	Items        []struct {
-		ID   int    `json:"id"`
-		Qty  int    `json:"qty"`
-		Unit string `json:"unit"` // 新增：预订时的单位
+		ID      int    `json:"id"`
+		Qty     int    `json:"qty"`
+		Unit    string `json:"unit"`     // 新增：预订时的单位
+		QtyPaid int    `json:"qty_paid"` // 新增：已付款数量
 	} `json:"items"`
 }
 

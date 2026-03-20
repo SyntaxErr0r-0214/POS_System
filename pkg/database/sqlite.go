@@ -105,6 +105,17 @@ func Init() *sql.DB {
 		}
 	}
 
+	// 6. [新增] 检查并添加 order_items.qty_paid 列 (预付款追踪)
+	var countQP int
+	err = db.QueryRow("SELECT count(*) FROM pragma_table_info('order_items') WHERE name='qty_paid'").Scan(&countQP)
+	if countQP == 0 {
+		log.Println("正在升级数据库: 添加 order_items.qty_paid 列...")
+		_, err = db.Exec("ALTER TABLE order_items ADD COLUMN qty_paid INTEGER DEFAULT 0")
+		if err != nil {
+			log.Fatal("升级数据库(order_items.qty_paid)失败:", err)
+		}
+	}
+
 	log.Println("Database initialized successfully.")
 	return db
 }

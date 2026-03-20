@@ -208,6 +208,15 @@ func (r *ProductRepo) BatchProcure(items []map[string]interface{}) error {
 			tx.Rollback()
 			return err
 		}
+
+		// 同步价格到待处理订单中价格为0的明细（临时商品采购后同步售价）
+		if price > 0 {
+			if _, err := tx.Exec(`UPDATE order_items SET price = ? WHERE product_id = ? AND price = 0
+				AND order_id IN (SELECT id FROM orders WHERE status = 'Pending')`, price, id); err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
 	}
 	return tx.Commit()
 }

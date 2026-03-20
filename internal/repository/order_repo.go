@@ -43,8 +43,8 @@ func (r *OrderRepo) CreateOrder(tx *sql.Tx, customer string, phone string, statu
 
 // CreateOrderItem 创建明细
 func (r *OrderRepo) CreateOrderItem(tx *sql.Tx, item model.OrderItem) error {
-	_, err := tx.Exec(`INSERT INTO order_items (order_id, product_id, product_name, price, qty_ordered, qty_picked) VALUES (?, ?, ?, ?, ?, ?)`,
-		item.OrderID, item.ProductID, item.ProductName, item.Price, item.QtyOrdered, item.QtyPicked)
+	_, err := tx.Exec(`INSERT INTO order_items (order_id, product_id, product_name, price, qty_ordered, qty_picked, qty_paid) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		item.OrderID, item.ProductID, item.ProductName, item.Price, item.QtyOrdered, item.QtyPicked, item.QtyPaid)
 	return err
 }
 
@@ -112,14 +112,15 @@ func (r *OrderRepo) GetOrders(status string, query string, dateFilter string) ([
 	return orders, nil
 }
 
-// GetItemsByOrderID 获取订单明细 (带进价和退款数)
+// GetItemsByOrderID 获取订单明细 (带进价、退款数和已付款数)
 func (r *OrderRepo) GetItemsByOrderID(orderID int) ([]model.OrderItem, error) {
 	query := `
 		SELECT 
 			oi.id, oi.order_id, oi.product_id, oi.product_name, 
 			oi.price, oi.qty_ordered, oi.qty_picked,
 			COALESCE(p.cost_price, 0),
-			COALESCE(oi.qty_refunded, 0)
+			COALESCE(oi.qty_refunded, 0),
+			COALESCE(oi.qty_paid, 0)
 		FROM order_items oi
 		LEFT JOIN products p ON oi.product_id = p.id
 		WHERE oi.order_id = ?
@@ -136,7 +137,7 @@ func (r *OrderRepo) GetItemsByOrderID(orderID int) ([]model.OrderItem, error) {
 		if err := rows.Scan(
 			&i.ID, &i.OrderID, &i.ProductID, &i.ProductName,
 			&i.Price, &i.QtyOrdered, &i.QtyPicked,
-			&i.CostPrice, &i.QtyRefunded,
+			&i.CostPrice, &i.QtyRefunded, &i.QtyPaid,
 		); err != nil {
 			return nil, err
 		}
@@ -155,9 +156,9 @@ func (r *OrderRepo) GetItemByID(tx *sql.Tx, itemID int) (*model.OrderItem, error
 	return &i, nil
 }
 
-// UpdatePickedQty 更新已取数量
+// UpdatePickedQty 更新已取数量并同步付款状态 (提货即代表付款)
 func (r *OrderRepo) UpdatePickedQty(tx *sql.Tx, itemID int, qty int) error {
-	_, err := tx.Exec("UPDATE order_items SET qty_picked = qty_picked + ? WHERE id = ?", qty, itemID)
+	_, err := tx.Exec("UPDATE order_items SET qty_picked = qty_picked + ?, qty_paid = MAX(qty_paid, qty_picked + ?) WHERE id = ?", qty, qty, itemID)
 	return err
 }
 
@@ -239,4 +240,26 @@ func (r *OrderRepo) GetProcurementList() ([]ProcurementItem, error) {
 		list = append(list, item)
 	}
 	return list, nil
+}
+
+// DeleteOrder 删除单个订单及明细
+func (r *OrderRepo) DeleteOrder(tx *sql.Tx, orderID int) error {
+	_, err := tx.Exec("DELETE FROM order_items WHERE order_id = ?", orderID)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec("DELETE FROM orders WHERE id = ?", orderID)
+	return err
+}
+
+// ClearHistoryOrders 清空所有历史记录订单（状态包括 Completed, Refunded, Partial）
+func (r *OrderRepo) ClearHistoryOrders(tx *sql.Tx) error {
+	// 先删除相关的订单明细
+	_, err := tx.Exec("DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE status IN ('Completed', 'Refunded', 'Partial'))")
+	if err != nil {
+		return err
+	}
+	// 然后删除主订单
+	_, err = tx.Exec("DELETE FROM orders WHERE status IN ('Completed', 'Refunded', 'Partial')")
+	return err
 }

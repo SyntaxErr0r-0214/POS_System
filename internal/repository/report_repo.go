@@ -27,6 +27,10 @@ type SaleRecord struct {
 
 // GetSalesData 获取指定时间范围内的所有销售明细
 func (r *ReportRepo) GetSalesData(start, end time.Time) ([]SaleRecord, error) {
+	// 将 time.Time 转换为 UTC 后格式化，因为 SQLite 的 CURRENT_TIMESTAMP 存储的是 UTC 时间
+	startStr := start.UTC().Format("2006-01-02 15:04:05")
+	endStr := end.UTC().Format("2006-01-02 15:04:05")
+
 	// 查询包含已完成(Completed)和部分退款(Partial)的订单
 	// 同时查出 qty_refunded 用于计算净销量
 	sqlStr := `
@@ -34,10 +38,10 @@ func (r *ReportRepo) GetSalesData(start, end time.Time) ([]SaleRecord, error) {
 		FROM order_items oi
 		JOIN orders o ON oi.order_id = o.id
 		LEFT JOIN products p ON oi.product_id = p.id
-		WHERE o.status IN ('Completed', 'Partial') AND o.created_at BETWEEN ? AND ?
+		WHERE o.status IN ('Completed', 'Partial') AND o.created_at >= ? AND o.created_at < ?
 		ORDER BY o.created_at ASC
 	`
-	rows, err := r.DB.Query(sqlStr, start, end)
+	rows, err := r.DB.Query(sqlStr, startStr, endStr)
 	// [修复] 这里必须检查 err
 	if err != nil {
 		return nil, err
