@@ -112,6 +112,18 @@ func (r *OrderRepo) GetOrders(status string, query string, dateFilter string) ([
 	return orders, nil
 }
 
+// GetOrderByID 获取单个订单详情
+func (r *OrderRepo) GetOrderByID(orderID int) (*model.Order, error) {
+	var o model.Order
+	err := r.DB.QueryRow("SELECT id, customer_name, phone, status, created_at, daily_seq FROM orders WHERE id = ?", orderID).Scan(
+		&o.ID, &o.CustomerName, &o.Phone, &o.Status, &o.CreatedAt, &o.DailySeq,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &o, nil
+}
+
 // GetItemsByOrderID 获取订单明细 (带进价、退款数和已付款数)
 func (r *OrderRepo) GetItemsByOrderID(orderID int) ([]model.OrderItem, error) {
 	query := `
@@ -170,6 +182,24 @@ func (r *OrderRepo) CheckOrderComplete(tx *sql.Tx, orderID int) (bool, error) {
 		return false, err
 	}
 	return unpickedCount == 0, nil
+}
+
+// DeleteOrderItem 删除订单商品
+func (r *OrderRepo) DeleteOrderItem(tx *sql.Tx, itemID int) error {
+	_, err := tx.Exec("DELETE FROM order_items WHERE id = ?", itemID)
+	return err
+}
+
+// UpdateOrderItemQtyAndPaid 更新订单商品的数量和已付款数
+func (r *OrderRepo) UpdateOrderItemQtyAndPaid(tx *sql.Tx, itemID int, qtyOrdered int, qtyPaid int) error {
+	_, err := tx.Exec("UPDATE order_items SET qty_ordered = ?, qty_paid = ? WHERE id = ?", qtyOrdered, qtyPaid, itemID)
+	return err
+}
+
+// UpdateOrderInfo 更新订单基本信息
+func (r *OrderRepo) UpdateOrderInfo(tx *sql.Tx, orderID int, customerName, phone string) error {
+	_, err := tx.Exec("UPDATE orders SET customer_name = ?, phone = ? WHERE id = ?", customerName, phone, orderID)
+	return err
 }
 
 // UpdateStatus 更新订单状态

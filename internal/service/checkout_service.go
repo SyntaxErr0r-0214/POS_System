@@ -144,6 +144,128 @@ func (s *CheckoutService) Book(req model.BookingRequest) error {
 	return tx.Commit()
 }
 
+// UpdateOrder 修改进行中的预订单
+func (s *CheckoutService) UpdateOrder(req model.UpdateOrderRequest) error {
+	tx, err := s.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// 1. 获取原订单及明细
+	order, err := s.OrderRepo.GetOrderByID(req.OrderID)
+	if err != nil {
+		return err
+	}
+	if order.Status != "Pending" {
+		return fmt.Errorf("只能修改进行中的订单")
+	}
+
+	oldItems, err := s.OrderRepo.GetItemsByOrderID(req.OrderID)
+	if err != nil {
+		return err
+	}
+
+	// 将旧明细转为 map 方便对比
+	oldItemMap := make(map[int]model.OrderItem)
+	for _, item := range oldItems {
+		oldItemMap[int(item.ProductID)] = item
+	}
+
+	// 2. 对比新明细
+	newItemIDs := make(map[int]bool)
+
+	for _, itemReq := range req.Items {
+		newItemIDs[itemReq.ID] = true
+
+		oldItem, exists := oldItemMap[itemReq.ID]
+		if exists {
+			// 商品已存在，可能修改了数量或已付款数
+			// 校验数量不能低于已提走+已退款的数量
+			minRequiredQty := oldItem.QtyPicked + oldItem.QtyRefunded
+			if itemReq.Qty < minRequiredQty {
+				return fmt.Errorf("商品【%s】的数量不能减少到 %d 以下 (已提/退部分无法被删减)", oldItem.ProductName, minRequiredQty)
+			}
+
+			// 更新库存 (新数量与旧数量差值)
+			diffQty := itemReq.Qty - oldItem.QtyOrdered
+			if diffQty > 0 {
+				// 需要扣减更多库存
+				p, err := s.ProductRepo.FindByID(tx, itemReq.ID)
+				if err != nil {
+					return err
+				}
+				if p.Stock < diffQty {
+					return fmt.Errorf("【%s】库存不足(需要追加%d，仅剩%d)", p.Name, diffQty, p.Stock)
+				}
+				if err := s.ProductRepo.DecreaseStock(tx, itemReq.ID, diffQty); err != nil {
+					return err
+				}
+			} else if diffQty < 0 {
+				// 恢复剩余库存
+				if err := s.ProductRepo.IncreaseStock(tx, itemReq.ID, -diffQty); err != nil {
+					return err
+				}
+			}
+
+			// 付款数量不能低于已取数量
+			newQtyPaid := itemReq.QtyPaid
+			if newQtyPaid < oldItem.QtyPicked {
+				newQtyPaid = oldItem.QtyPicked
+			}
+
+			if itemReq.Qty != oldItem.QtyOrdered || newQtyPaid != oldItem.QtyPaid {
+				if err := s.OrderRepo.UpdateOrderItemQtyAndPaid(tx, oldItem.ID, itemReq.Qty, newQtyPaid); err != nil {
+					return err
+				}
+			}
+		} else {
+			// 全新商品，直接扣库存并新增行
+			p, err := s.ProductRepo.FindByID(tx, itemReq.ID)
+			if err != nil {
+				return fmt.Errorf("新增商品异常")
+			}
+			if p.Stock < itemReq.Qty {
+				return fmt.Errorf("【%s】库存不足(需要%d，剩%d)", p.Name, itemReq.Qty, p.Stock)
+			}
+			if err := s.ProductRepo.DecreaseStock(tx, itemReq.ID, itemReq.Qty); err != nil {
+				return err
+			}
+
+			item := model.OrderItem{
+				OrderID: req.OrderID, ProductID: p.ID, ProductName: p.Name,
+				Price: p.Price, QtyOrdered: itemReq.Qty, QtyPicked: 0, QtyPaid: itemReq.QtyPaid, Unit: p.Unit,
+			}
+			if err := s.OrderRepo.CreateOrderItem(tx, item); err != nil {
+				return err
+			}
+		}
+	}
+
+	// 3. 处理被删除的旧明细
+	for productID, oldItem := range oldItemMap {
+		if !newItemIDs[productID] {
+			if oldItem.QtyPicked > 0 || oldItem.QtyRefunded > 0 {
+				return fmt.Errorf("商品【%s】已经产生过提货或退款记录，不能直接删除。请将其修改为已发生数量。", oldItem.ProductName)
+			}
+			// 恢复库存并删除记录
+			if err := s.ProductRepo.IncreaseStock(tx, int(oldItem.ProductID), oldItem.QtyOrdered); err != nil {
+				return err
+			}
+			if err := s.OrderRepo.DeleteOrderItem(tx, oldItem.ID); err != nil {
+				return err
+			}
+		}
+	}
+
+	// 4. 更新订单基本信息
+	if err := s.OrderRepo.UpdateOrderInfo(tx, req.OrderID, req.CustomerName, req.Phone); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 // Pickup 提货 (履约) - 58mm 防溢出版
 func (s *CheckoutService) Pickup(req model.PickupRequest) error {
 	tx, err := s.DB.Begin()

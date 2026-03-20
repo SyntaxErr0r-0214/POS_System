@@ -41,6 +41,12 @@ func (r *ProductRepo) DecreaseStock(tx *sql.Tx, productID int, qty int) error {
 	return err
 }
 
+// IncreaseStock 增加库存
+func (r *ProductRepo) IncreaseStock(tx *sql.Tx, productID int, qty int) error {
+	_, err := tx.Exec("UPDATE products SET stock = stock + ? WHERE id = ?", qty, productID)
+	return err
+}
+
 // GetAll 获取所有商品
 func (r *ProductRepo) GetAll() ([]model.Product, error) {
 	rows, err := r.DB.Query("SELECT id, barcode, name, category, price, cost_price, stock, unit FROM products ORDER BY id DESC")

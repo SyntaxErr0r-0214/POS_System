@@ -57,6 +57,7 @@ func main() {
 	http.HandleFunc("/api/orders", oHandler.Search)
 	http.HandleFunc("/api/pickup", oHandler.Pickup)
 	// 👇 新增这一行
+	http.HandleFunc("/api/order/update", oHandler.UpdateOrder)
 	http.HandleFunc("/api/refund", oHandler.Refund)
 	// 👇 新增：采购清单接口
 	http.HandleFunc("/api/procurement", oHandler.GetProcurement)

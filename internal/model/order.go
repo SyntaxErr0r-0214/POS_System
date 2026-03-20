@@ -45,8 +45,20 @@ type BookingRequest struct {
 	Items        []struct {
 		ID      int    `json:"id"`
 		Qty     int    `json:"qty"`
-		Unit    string `json:"unit"`     // 新增：预订时的单位
-		QtyPaid int    `json:"qty_paid"` // 新增：已付款数量
+		Unit    string `json:"unit"`
+		QtyPaid int    `json:"qty_paid"`
+	} `json:"items"`
+}
+
+type UpdateOrderRequest struct {
+	OrderID      int    `json:"order_id"`
+	CustomerName string `json:"customer_name"`
+	Phone        string `json:"phone"`
+	Items        []struct {
+		ID      int    `json:"id"`
+		Qty     int    `json:"qty"`
+		Unit    string `json:"unit"`
+		QtyPaid int    `json:"qty_paid"`
 	} `json:"items"`
 }
 

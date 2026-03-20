@@ -40,6 +40,20 @@ func (h *OrderHandler) Book(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("预订成功"))
 }
 
+// UpdateOrder 修改预订单
+func (h *OrderHandler) UpdateOrder(w http.ResponseWriter, r *http.Request) {
+	var req model.UpdateOrderRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	if err := h.Service.UpdateOrder(req); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.Write([]byte("修改成功"))
+}
+
 // Search 搜索订单 (核心改动在这里！)
 func (h *OrderHandler) Search(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
