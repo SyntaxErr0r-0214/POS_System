@@ -102,7 +102,9 @@ func (s *CheckoutService) Checkout(req model.CheckoutRequest) error {
 	}
 
 	sb.WriteString("-------------------------------\n")
-	sb.WriteString(fmt.Sprintf("合计:          RMB %.2f\n", totalPrice))
+	sb.WriteString(fmt.Sprintf("总计金额:      RMB %8.2f\n", totalPrice))
+	sb.WriteString(fmt.Sprintf("已收金额:      RMB %8.2f\n", totalPrice))
+	sb.WriteString(fmt.Sprintf("未收金额:      RMB %8.2f\n", 0.00))
 	sb.WriteString("-------------------------------\n")
 	sb.WriteString("    谢谢惠顾，欢迎下次光临！\n\n\n\n")
 
@@ -353,6 +355,7 @@ func (s *CheckoutService) Pickup(req model.PickupRequest) error {
 	sb.WriteString("-------------------------------\n")
 
 	var totalAmount float64
+	var totalPaidAmount float64
 
 	for _, item := range allItems {
 		remaining := item.QtyOrdered - item.QtyPicked - item.QtyRefunded
@@ -360,8 +363,15 @@ func (s *CheckoutService) Pickup(req model.PickupRequest) error {
 			remaining = 0
 		}
 
-		subtotal := item.Price * float64(item.QtyOrdered)
+		subtotal := item.Price * float64(item.QtyOrdered-item.QtyRefunded)
 		totalAmount += subtotal
+
+		paidQty := item.QtyPaid
+		effectiveQty := item.QtyOrdered - item.QtyRefunded
+		if paidQty > effectiveQty {
+			paidQty = effectiveQty
+		}
+		totalPaidAmount += item.Price * float64(paidQty)
 
 		sb.WriteString(fmt.Sprintf("%s\n", item.ProductName))
 
@@ -373,7 +383,7 @@ func (s *CheckoutService) Pickup(req model.PickupRequest) error {
 			statusStr = fmt.Sprintf("[取%d]剩%d", thisTimePickQty, remaining)
 		} else {
 			// 极简写法：订3提2剩1
-			statusStr = fmt.Sprintf("订%d提%d剩%d", item.QtyOrdered, item.QtyPicked, remaining)
+			statusStr = fmt.Sprintf("订%d提%d剩%d", item.QtyOrdered-item.QtyRefunded, item.QtyPicked, remaining)
 		}
 
 		// ★★★ 核心修复：大幅减少 padding ★★★
@@ -385,7 +395,13 @@ func (s *CheckoutService) Pickup(req model.PickupRequest) error {
 	}
 
 	sb.WriteString("-------------------------------\n")
-	sb.WriteString(fmt.Sprintf("总额:          RMB %.2f\n", totalAmount))
+	sb.WriteString(fmt.Sprintf("总计金额:      RMB %8.2f\n", totalAmount))
+	sb.WriteString(fmt.Sprintf("已收金额:      RMB %8.2f\n", totalPaidAmount))
+	unpaidAmount := totalAmount - totalPaidAmount
+	if unpaidAmount < 0 {
+		unpaidAmount = 0
+	}
+	sb.WriteString(fmt.Sprintf("未收金额:      RMB %8.2f\n", unpaidAmount))
 	sb.WriteString("-------------------------------\n")
 
 	if isComplete {
@@ -433,18 +449,26 @@ func (s *CheckoutService) ReprintTicket(orderID int) error {
 	sb.WriteString("-------------------------------\n")
 
 	var totalAmount float64
+	var totalPaidAmount float64
 	for _, item := range items {
 		remaining := item.QtyOrdered - item.QtyPicked - item.QtyRefunded
 		if remaining < 0 {
 			remaining = 0
 		}
 
-		subtotal := item.Price * float64(item.QtyOrdered)
+		subtotal := item.Price * float64(item.QtyOrdered-item.QtyRefunded)
 		totalAmount += subtotal
+
+		paidQty := item.QtyPaid
+		effectiveQty := item.QtyOrdered - item.QtyRefunded
+		if paidQty > effectiveQty {
+			paidQty = effectiveQty
+		}
+		totalPaidAmount += item.Price * float64(paidQty)
 
 		sb.WriteString(fmt.Sprintf("%s\n", item.ProductName))
 
-		statusStr := fmt.Sprintf("订%d提%d剩%d", item.QtyOrdered, item.QtyPicked, remaining)
+		statusStr := fmt.Sprintf("订%d提%d剩%d", item.QtyOrdered-item.QtyRefunded, item.QtyPicked, remaining)
 		if item.QtyRefunded > 0 {
 			statusStr += fmt.Sprintf("(退%d)", item.QtyRefunded)
 		}
@@ -454,7 +478,13 @@ func (s *CheckoutService) ReprintTicket(orderID int) error {
 	}
 
 	sb.WriteString("-------------------------------\n")
-	sb.WriteString(fmt.Sprintf("总额:          RMB %.2f\n", totalAmount))
+	sb.WriteString(fmt.Sprintf("总计金额:      RMB %8.2f\n", totalAmount))
+	sb.WriteString(fmt.Sprintf("已收金额:      RMB %8.2f\n", totalPaidAmount))
+	unpaidAmount := totalAmount - totalPaidAmount
+	if unpaidAmount < 0 {
+		unpaidAmount = 0
+	}
+	sb.WriteString(fmt.Sprintf("未收金额:      RMB %8.2f\n", unpaidAmount))
 	sb.WriteString("-------------------------------\n")
 	sb.WriteString("      (此票据为补打副本)\n\n\n\n")
 
