@@ -42,7 +42,7 @@ func (s *CheckoutService) Checkout(req model.CheckoutRequest) error {
 	// [58mm] 分割线控制在31个字符，防止溢出
 	sb.WriteString("-------------------------------\n")
 	sb.WriteString(fmt.Sprintf("   %s\n", StoreName))
-	sb.WriteString("          [销售小票]\n")
+
 	sb.WriteString("-------------------------------\n")
 	sb.WriteString(fmt.Sprintf("单号:#%d\n", orderID))
 	sb.WriteString(fmt.Sprintf("时间:%s\n", time.Now().Format("06-01-02 15:04")))
@@ -126,15 +126,48 @@ func (s *CheckoutService) Book(req model.BookingRequest) error {
 		return err
 	}
 
+	var hasPaid bool
+	var paidTotal float64
+	type paidEntry struct {
+		Name  string
+		Unit  string
+		Price float64
+		Qty   int
+	}
+	var paidItems []paidEntry
+
 	for _, itemReq := range req.Items {
 		p, err := s.ProductRepo.FindByID(tx, itemReq.ID)
 		if err != nil {
 			return fmt.Errorf("商品ID %d 异常", itemReq.ID)
 		}
 
+		// 根据需求: 挂单时已付款即为已提走
+		qtyPickedNow := itemReq.QtyPaid
+		if qtyPickedNow > itemReq.Qty {
+			qtyPickedNow = itemReq.Qty
+		}
+
+		// 如果部分/全部被提走，需要立即扣除这部分库存(其他未提走的不扣)
+		if qtyPickedNow > 0 {
+			if err := s.ProductRepo.DecreaseStock(tx, p.ID, qtyPickedNow); err != nil {
+				return err
+			}
+
+			// 加入打印小票列表
+			hasPaid = true
+			unit := itemReq.Unit
+			if unit == "" {
+				unit = p.Unit
+			}
+			sub := p.Price * float64(qtyPickedNow)
+			paidTotal += sub
+			paidItems = append(paidItems, paidEntry{Name: p.Name, Unit: unit, Price: p.Price, Qty: qtyPickedNow})
+		}
+
 		item := model.OrderItem{
 			OrderID: int(orderID), ProductID: p.ID, ProductName: p.Name,
-			Price: p.Price, QtyOrdered: itemReq.Qty, QtyPicked: 0, QtyPaid: itemReq.QtyPaid, Unit: itemReq.Unit, // 预订商品带上单位和已付款数
+			Price: p.Price, QtyOrdered: itemReq.Qty, QtyPicked: qtyPickedNow, QtyPaid: itemReq.QtyPaid, Unit: itemReq.Unit, // 预订商品带上单位
 		}
 		if item.Unit == "" {
 			item.Unit = p.Unit
@@ -143,7 +176,39 @@ func (s *CheckoutService) Book(req model.BookingRequest) error {
 			return err
 		}
 	}
-	return tx.Commit()
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	// 只有当存在预付款并提货时才打印小票
+	if hasPaid {
+		var sb strings.Builder
+		sb.WriteString("-------------------------------\n")
+		sb.WriteString(fmt.Sprintf("   %s\n", StoreName))
+		sb.WriteString("-------------------------------\n")
+		sb.WriteString(fmt.Sprintf("单号:#%d\n", orderID))
+		sb.WriteString(fmt.Sprintf("时间:%s\n", time.Now().Format("06-01-02 15:04")))
+		if req.CustomerName != "" {
+			sb.WriteString(fmt.Sprintf("客户:%s\n", req.CustomerName))
+		}
+		sb.WriteString("-------------------------------\n")
+		for _, pe := range paidItems {
+			sb.WriteString(fmt.Sprintf("%s\n", pe.Name))
+			displayUnit := ""
+			if pe.Unit != "" {
+				displayUnit = "/" + pe.Unit
+			}
+			sub := pe.Price * float64(pe.Qty)
+			sb.WriteString(fmt.Sprintf(" %-7.2f%-3s x%-3d %8.2f\n", pe.Price, displayUnit, pe.Qty, sub))
+		}
+		sb.WriteString("-------------------------------\n")
+		sb.WriteString(fmt.Sprintf("本次实收:      RMB %8.2f\n", paidTotal)) // Removed specific labels, just a simple string
+		sb.WriteString("-------------------------------\n")
+		sb.WriteString("\n\n\n")
+		s.printAsync(sb.String())
+	}
+	return nil
 }
 
 // UpdateOrder 修改进行中的预订单
@@ -335,7 +400,11 @@ func (s *CheckoutService) Pickup(req model.PickupRequest) error {
 		return err
 	}
 
-	// --- 打印 ---
+	// --- 打印（仅打印本次提货的商品，简洁样式） ---
+	if len(pickedMap) == 0 {
+		return nil
+	}
+
 	allItems, err := s.OrderRepo.GetItemsByOrderID(req.OrderID)
 	if err != nil {
 		log.Printf("获取订单明细失败，无法打印: %v", err)
@@ -345,63 +414,31 @@ func (s *CheckoutService) Pickup(req model.PickupRequest) error {
 	var sb strings.Builder
 	sb.WriteString("-------------------------------\n")
 	sb.WriteString(fmt.Sprintf("   %s\n", StoreName))
-	sb.WriteString("       [预订提货单]\n")
+
 	sb.WriteString("-------------------------------\n")
 	sb.WriteString(fmt.Sprintf("订单:#%d\n", req.OrderID))
 	sb.WriteString(fmt.Sprintf("提货:%s\n", time.Now().Format("06-01-02 15:04")))
 	sb.WriteString("-------------------------------\n")
-	// [58mm] 极简表头
-	sb.WriteString("状态(订/提/剩)           金额\n")
-	sb.WriteString("-------------------------------\n")
 
-	var totalAmount float64
-	var totalPaidAmount float64
-
+	var pickTotal float64
 	for _, item := range allItems {
-		remaining := item.QtyOrdered - item.QtyPicked - item.QtyRefunded
-		if remaining < 0 {
-			remaining = 0
+		thisTimeQty, exists := pickedMap[item.ID]
+		if !exists || thisTimeQty <= 0 {
+			continue
 		}
-
-		subtotal := item.Price * float64(item.QtyOrdered-item.QtyRefunded)
-		totalAmount += subtotal
-
-		paidQty := item.QtyPaid
-		effectiveQty := item.QtyOrdered - item.QtyRefunded
-		if paidQty > effectiveQty {
-			paidQty = effectiveQty
-		}
-		totalPaidAmount += item.Price * float64(paidQty)
+		subtotal := item.Price * float64(thisTimeQty)
+		pickTotal += subtotal
 
 		sb.WriteString(fmt.Sprintf("%s\n", item.ProductName))
-
-		var statusStr string
-		thisTimePickQty, exists := pickedMap[item.ID]
-
-		if exists && thisTimePickQty > 0 {
-			// 极简写法：[取2]剩1
-			statusStr = fmt.Sprintf("[取%d]剩%d", thisTimePickQty, remaining)
-		} else {
-			// 极简写法：订3提2剩1
-			statusStr = fmt.Sprintf("订%d提%d剩%d", item.QtyOrdered-item.QtyRefunded, item.QtyPicked, remaining)
+		displayUnit := ""
+		if item.Unit != "" {
+			displayUnit = "/" + item.Unit
 		}
-
-		// ★★★ 核心修复：大幅减少 padding ★★★
-		// %-13s: 预留13个位置给汉字状态串(汉字视觉宽，实际短，容易撑开)
-		// %8.2f: 预留8个位置给价格
-		// 缩进2格
-		// 总视觉宽度估算: 2 + (10~14) + 8 = ~24-28 (安全范围32)
-		sb.WriteString(fmt.Sprintf("  %-13s %8.2f\n", statusStr, subtotal))
+		sb.WriteString(fmt.Sprintf(" %-7.2f%-3s x%-3d %8.2f\n", item.Price, displayUnit, thisTimeQty, subtotal))
 	}
 
 	sb.WriteString("-------------------------------\n")
-	sb.WriteString(fmt.Sprintf("总计金额:      RMB %8.2f\n", totalAmount))
-	sb.WriteString(fmt.Sprintf("已收金额:      RMB %8.2f\n", totalPaidAmount))
-	unpaidAmount := totalAmount - totalPaidAmount
-	if unpaidAmount < 0 {
-		unpaidAmount = 0
-	}
-	sb.WriteString(fmt.Sprintf("未收金额:      RMB %8.2f\n", unpaidAmount))
+	sb.WriteString(fmt.Sprintf("本次提货:      RMB %8.2f\n", pickTotal))
 	sb.WriteString("-------------------------------\n")
 
 	if isComplete {
@@ -431,7 +468,7 @@ func (s *CheckoutService) ReprintTicket(orderID int) error {
 	var sb strings.Builder
 	sb.WriteString("-------------------------------\n")
 	sb.WriteString(fmt.Sprintf("   %s\n", StoreName))
-	sb.WriteString("     [补打小票/Reprint]\n")
+
 	sb.WriteString("-------------------------------\n")
 	sb.WriteString(fmt.Sprintf("单号:#%d\n", orderID))
 	if len(createdAt) > 16 {
