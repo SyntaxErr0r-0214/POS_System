@@ -977,7 +977,7 @@
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg
             ><input
               id="order-search"
-              placeholder="搜单号/姓名..."
+              placeholder="搜单号/姓名/商品..."
               onkeyup="searchOrders()"
             />
           </div>
@@ -1245,6 +1245,13 @@
               onclick="document.getElementById('file-upload').click()"
             >
               📤 恢复
+            </button>
+            <button
+              class="btn"
+              style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5;"
+              onclick="resetSystemData()"
+            >
+              🔄 初始化
             </button>
             <input
               type="file"
@@ -2066,6 +2073,12 @@
                   }
                 }
 
+                let itemsSummary = "";
+                if (o.items && o.items.length > 0) {
+                  const names = o.items.map(item => `${item.product_name}×${item.qty_ordered}`).join(" / ");
+                  itemsSummary = `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #e5e7eb;font-size:12px;color:#4f46e5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${names}">🛒 ${names}</div>`;
+                }
+
                 return `<div class="order-card-item ${cardClass}" onclick="selOrd(${i})" id="ord-${i}">
                     <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
                         <span style="font-weight:800;">${idDisplay} ${badge}</span>
@@ -2073,6 +2086,7 @@
                     </div>
                     <div style="font-weight:700;">${o.customer_name}</div>
                     <div style="color:#666;font-size:13px;">${o.phone}</div>
+                    ${itemsSummary}
                 </div>`;
               })
               .join("");
@@ -2918,6 +2932,14 @@
           );
         });
         i.value = "";
+      }
+      function resetSystemData() {
+        showConfirm("⚠️ 危险确认：您确定要彻底清空系统中所有的商品、订单及销售流水，将系统完全初始化吗？（操作后不可恢复）", () => {
+          fetch("/api/system/reset", { method: "POST" }).then(async (r) => {
+            showToast(await r.text(), "success");
+            setTimeout(() => location.reload(), 1500);
+          });
+        });
       }
       function loadReport(t, b) {
         const btns = document.querySelectorAll(".time-filters button");

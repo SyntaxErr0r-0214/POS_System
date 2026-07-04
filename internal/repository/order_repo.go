@@ -76,9 +76,9 @@ func (r *OrderRepo) GetOrders(status string, query string, dateFilter string) ([
 
 	// 3. 关键词搜索
 	if query != "" {
-		sqlStr += ` AND (customer_name LIKE ? OR phone LIKE ? OR CAST(id AS TEXT) LIKE ?)`
+		sqlStr += ` AND (customer_name LIKE ? OR phone LIKE ? OR CAST(id AS TEXT) LIKE ? OR CAST(daily_seq AS TEXT) LIKE ? OR EXISTS (SELECT 1 FROM order_items oi LEFT JOIN products p ON oi.product_id = p.id WHERE oi.order_id = orders.id AND (oi.product_name LIKE ? OR COALESCE(p.barcode, '') LIKE ?)))`
 		likeQuery := "%" + query + "%"
-		args = append(args, likeQuery, likeQuery, likeQuery)
+		args = append(args, likeQuery, likeQuery, likeQuery, likeQuery, likeQuery, likeQuery)
 	}
 
 	// 4. 排序

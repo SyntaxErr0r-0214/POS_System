@@ -38,7 +38,7 @@ func main() {
 	pHandler := &handler.ProductHandler{Repo: pRepo, Inventory: inventorySvc}
 	oHandler := &handler.OrderHandler{Service: checkoutSvc}
 	rHandler := &handler.ReportHandler{Service: reportSvc}
-	sysHandler := &handler.SystemHandler{}
+	sysHandler := &handler.SystemHandler{DB: db}
 
 	// 👇【新增】测试数据生成器 Handler
 	testHandler := &handler.TestHandler{
@@ -81,6 +81,7 @@ func main() {
 	// 系统管理接口
 	http.HandleFunc("/api/system/backup", sysHandler.Backup)
 	http.HandleFunc("/api/system/restore", sysHandler.Restore)
+	http.HandleFunc("/api/system/reset", sysHandler.Reset)
 
 	// 👇【新增】测试数据生成接口 (浏览器访问即可生成)
 	http.HandleFunc("/api/debug/seed", testHandler.SeedData)
