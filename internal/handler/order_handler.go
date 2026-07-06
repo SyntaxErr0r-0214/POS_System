@@ -54,26 +54,22 @@ func (h *OrderHandler) UpdateOrder(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("修改成功"))
 }
 
-// Search 搜索订单 (核心改动在这里！)
+// Search 搜索订单列表
 func (h *OrderHandler) Search(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
 	status := r.URL.Query().Get("status")
-	dateStr := r.URL.Query().Get("date") // [新增] 获取日期参数
+	dateStr := r.URL.Query().Get("date")
 
 	if status == "" {
 		status = "Pending"
 	}
 
-	// [关键修改] 这里必须传 3 个参数，否则会报错！
-	// 旧代码是: GetOrders(status, q)
-	// 新代码是: GetOrders(status, q, dateStr)
 	orders, err := h.Service.OrderRepo.GetOrders(status, q, dateStr)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
-	// 填充 Items
 	for i := range orders {
 		items, _ := h.Service.OrderRepo.GetItemsByOrderID(orders[i].ID)
 		orders[i].Items = items

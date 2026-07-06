@@ -32,20 +32,16 @@ type CheckDuplicateResult struct {
 	Message     string
 }
 
-// AddProduct 入库 (含自动条码和查重)
+// AddProduct 新增商品并进行重名及条码校验
 func (s *InventoryService) AddProduct(p model.Product) (CheckDuplicateResult, error) {
-	// 1. 自动生成条码 (如果为空)
 	if p.Barcode == "" {
-		// 使用时间戳生成唯一条码，例如: A20231024120000
 		p.Barcode = fmt.Sprintf("A%s", time.Now().Format("20060102150405"))
 	}
 
-	// 2. 查重：条码
 	if exist, _ := s.Repo.FindByBarcode(p.Barcode); exist != nil {
 		return CheckDuplicateResult{IsDuplicate: true, ExistingID: exist.ID, Message: "条码已存在"}, nil
 	}
 
-	// 3. 查重：名称和单位组合
 	if p.Name == "" {
 		return CheckDuplicateResult{}, errors.New("商品名称不能为空")
 	}
@@ -57,17 +53,15 @@ func (s *InventoryService) AddProduct(p model.Product) (CheckDuplicateResult, er
 		return CheckDuplicateResult{IsDuplicate: true, ExistingID: exist.ID, Message: fmt.Sprintf("商品名称 '%s' (单位: %s) 已存在", p.Name, unitToCheck)}, nil
 	}
 
-	// 4. 执行保存
 	err := s.Repo.Create(p)
 	return CheckDuplicateResult{IsDuplicate: false}, err
 }
 
-// EditProduct 编辑
+// EditProduct 编辑商品信息
 func (s *InventoryService) EditProduct(p model.Product) error {
 	if p.ID == 0 {
 		return errors.New("商品ID丢失")
 	}
-	// 编辑时也要简单查重，防止改成了别人的条码 (略简化，只查条码)
 	if p.Barcode != "" {
 		exist, _ := s.Repo.FindByBarcode(p.Barcode)
 		if exist != nil && exist.ID != p.ID {
@@ -77,7 +71,7 @@ func (s *InventoryService) EditProduct(p model.Product) error {
 	return s.Repo.Update(p)
 }
 
-// DeleteProduct 删除
+// DeleteProduct 删除商品
 func (s *InventoryService) DeleteProduct(id int) error {
 	if id <= 0 {
 		return errors.New("无效ID")
@@ -95,13 +89,12 @@ func (s *InventoryService) DeleteProduct(id int) error {
 	return s.Repo.Delete(id)
 }
 
-// BatchDelete 批量删除
+// BatchDelete 批量删除商品
 func (s *InventoryService) BatchDelete(ids []int) error {
 	if len(ids) == 0 {
 		return errors.New("未选择任何商品")
 	}
 
-	// Check if ANY product has pending orders
 	for _, id := range ids {
 		hasPending, err := s.OrderRepo.HasActiveOrders(id)
 		if err != nil {
@@ -112,10 +105,8 @@ func (s *InventoryService) BatchDelete(ids []int) error {
 		}
 	}
 
-	// Unlink from history iteratively
 	for _, id := range ids {
 		if err := s.OrderRepo.UnlinkProduct(id); err != nil {
-			// Ignore individual unlink errors or return them? Best to return to avoid silent failure.
 			return fmt.Errorf("商品(ID:%d)解除历史关联失败", id)
 		}
 	}

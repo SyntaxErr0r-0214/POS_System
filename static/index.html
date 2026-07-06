@@ -1008,7 +1008,7 @@
             "
             onclick="clearHistoryOrders()"
           >
-            🗑️ 清空历史记录
+            清空历史记录
           </button>
 
           <button
@@ -1016,7 +1016,7 @@
             style="width: 100%; margin-top: 12px; justify-content: center"
             onclick="openProcurementModal()"
           >
-            📋 打开采购入库单
+            打开采购入库单
           </button>
         </div>
         <div id="order-list" class="order-list-container"></div>
@@ -1148,14 +1148,14 @@
               style="padding: 14px 28px; color: #c2410c; border-color: #fdba74"
               onclick="openPartialRefund()"
             >
-              ↩️ 部分退款
+              部分退款
             </button>
             <button
               class="btn btn-danger-ghost"
               style="padding: 14px 28px"
               onclick="doRefund()"
             >
-              ⚠️ 全单退款
+              全单退款
             </button>
           </div>
           <div
@@ -1174,20 +1174,20 @@
               id="btn-delete-order"
               style="display: none"
               onclick="deleteCurrentOrder()"
-            >
-              🗑️ 删除订单
-            </button>
-            <button
-              class="btn btn-primary"
-              id="btn-edit-order"
-              style="display: none; background: #8b5cf6"
-              onclick="editCurrentOrder()"
-            >
-              ✏️ 修改预订
-            </button>
-            <button class="btn btn-outline" onclick="doReprint()">
-              🖨️ 补打小票
-            </button>
+          >
+            删除订单
+          </button>
+          <button
+            class="btn btn-primary"
+            id="btn-edit-order"
+            style="display: none; background: #8b5cf6"
+            onclick="editCurrentOrder()"
+          >
+            修改预订
+          </button>
+          <button class="btn btn-outline" onclick="doReprint()">
+            补打小票
+          </button>
           </div>
         </div>
         <div
@@ -1224,7 +1224,7 @@
               id="btn-low-stock"
               onclick="toggleLowStock()"
             >
-              ⚠️ 缺货
+              缺货筛选
             </button>
             <div
               style="
@@ -1238,20 +1238,20 @@
               class="btn btn-outline"
               onclick="window.location.href = '/api/system/backup'"
             >
-              📥 备份
+              备份数据
             </button>
             <button
               class="btn btn-outline"
               onclick="document.getElementById('file-upload').click()"
             >
-              📤 恢复
+              恢复数据
             </button>
             <button
               class="btn"
               style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5;"
               onclick="resetSystemData()"
             >
-              🔄 初始化
+              系统初始化
             </button>
             <input
               type="file"
@@ -1347,7 +1347,7 @@
         "
       >
         <h2 style="margin: 0; font-size: 28px; font-weight: 800">
-          📊 营收数据
+          营收统计数据
         </h2>
         <div class="time-filters" style="display: flex; gap: 8px">
           <button class="btn btn-outline" onclick="loadReport('day', this)">
@@ -1483,7 +1483,7 @@
             "
           >
             <label style="font-weight: 700; font-size: 14px"
-              >💰 预付款标记
+              >预付款标记
               <span
                 style="
                   font-weight: 400;
@@ -1576,7 +1576,7 @@
           >
             取消</button
           ><button class="btn btn-primary" onclick="submitProcurement()">
-            ✅ 完成采购并入库
+            完成采购并入库
           </button>
         </div>
       </div>
@@ -1585,7 +1585,7 @@
     <div class="modal-overlay" id="partial-refund-modal">
       <div class="modal" style="width: 600px">
         <h3>
-          ↩️ 部分退款
+          部分退款
           <span
             style="font-size: 14px; color: var(--text-sub); font-weight: 400"
             >(请输入要退货的数量)</span
@@ -1623,7 +1623,7 @@
 
     <div class="modal-overlay" id="confirm-modal" style="z-index: 2000">
       <div class="modal" style="width: 400px">
-        <h3 id="confirm-title" style="color: var(--danger)">⚠️ 确认操作</h3>
+        <h3 id="confirm-title" style="color: var(--danger)">确认操作</h3>
         <p
           id="confirm-msg"
           style="
@@ -1643,7 +1643,7 @@
 
     <div class="modal-overlay" id="temp-product-modal" style="z-index: 2000">
       <div class="modal" style="width: 400px">
-        <h3>✨ 新增临时商品</h3>
+        <h3>新增临时商品</h3>
         <div class="form-group" style="margin-top: 20px">
           <label>商品名称</label
           ><input id="temp-prod-name" placeholder="例如：特产核桃 5斤" />
@@ -1670,7 +1670,7 @@
 
     <div class="modal-overlay" id="batch-category-modal" style="z-index: 2000">
       <div class="modal" style="width: 400px">
-        <h3>🏷️ 批量修改分类</h3>
+        <h3>批量修改分类</h3>
         <p
           id="batch-cat-msg"
           style="font-size: 14px; color: var(--text-sub); margin-bottom: 16px"
@@ -1764,7 +1764,7 @@
         fetch("/api/inventory/list")
           .then((r) => r.json())
           .then((list) => {
-            // [修复] 判空，防止空库崩溃
+            // 检查并初始化列表
             if (!list) list = [];
             allProducts = list;
             renderCategories(list);
@@ -1817,7 +1817,7 @@
             const isOut = !isTemp && p.stock <= 0;
             let badge = "";
             if (isTemp)
-              badge = '<div class="badge-procure">⚠️ 待采购入库</div>';
+              badge = '<div class="badge-procure">待采购入库</div>';
             else if (isOut) badge = '<div class="badge-out">售罄</div>';
 
             return `<div class="product-card" onclick='addToCart(${JSON.stringify(p)})'>
@@ -1927,7 +1927,7 @@
 
         if (editingOrderId) {
           cartHtml += `<div style="background:#fff3cd; color:#856404; padding:8px; border-radius:4px; margin-bottom:10px; text-align:center; font-weight:bold; font-size:14px; display:flex; justify-content:space-between; align-items:center;">
-                    <span>✏️ 正在修改预订单 #${editingOrderId}</span>
+                    <span>正在修改预订单 #${editingOrderId}</span>
                     <button onclick="cancelEditOrder()" style="background:none;border:none;color:#856404;cursor:pointer;font-weight:bold;text-decoration:underline;padding:0;">离开修改</button>
                 </div>`;
         }
@@ -1991,7 +1991,7 @@
           body: JSON.stringify({ items: cart }),
         }).then((r) =>
           r.ok
-            ? (showToast("✅ 结算成功"), clearCart(), loadProductGrid())
+            ? (showToast("结算成功"), clearCart(), loadProductGrid())
             : showToast("库存不足", "error"),
         );
       }
@@ -2004,7 +2004,7 @@
           .forEach((e) => e.classList.remove("active"));
         b.classList.add("active");
 
-        // [新增] 日期选择器控制
+        // 日期选择器控制
         const dateBox = document.getElementById("date-filter-box");
         const dateInput = document.getElementById("order-date-picker");
 
@@ -2012,7 +2012,7 @@
         document.getElementById("pickup-action-bar").style.display = "none";
         document.getElementById("refund-action-bar").style.display = "none";
 
-        // 新增：只有在选中 Completed (历史记录) 时才显示清空历史按钮
+        // 只有在选中历史记录时才显示清空按钮
         const clearHistoryBtn = document.getElementById("btn-clear-history");
 
         if (s === "Pending") {
@@ -2061,7 +2061,7 @@
                     '<span style="background:#fef3c7;color:#d97706;font-size:12px;padding:2px 6px;border-radius:4px;font-weight:700;border:1px solid #fcd34d;margin-left:4px;">预</span>' +
                     badge;
 
-                // [新增] 显示流水号逻辑
+                // 显示每日流水号
                 let idDisplay = `#${o.id}`;
                 if (o.daily_seq > 0) {
                   const todayStr = new Date().toISOString().split("T")[0];
@@ -2076,7 +2076,7 @@
                 let itemsSummary = "";
                 if (o.items && o.items.length > 0) {
                   const names = o.items.map(item => `${item.product_name}×${item.qty_ordered}`).join(" / ");
-                  itemsSummary = `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #e5e7eb;font-size:12px;color:#4f46e5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${names}">🛒 ${names}</div>`;
+                  itemsSummary = `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #e5e7eb;font-size:12px;color:#4f46e5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${names}">订购明细: ${names}</div>`;
                 }
 
                 return `<div class="order-card-item ${cardClass}" onclick="selOrd(${i})" id="ord-${i}">
@@ -2163,7 +2163,7 @@
         profitTag.id = "profit-tag";
         profitTag.style.cssText =
           "background:#ecfdf5;color:#059669;font-size:13px;padding:4px 10px;border-radius:6px;font-weight:700;margin-left:12px;border:1px solid #a7f3d0;";
-        profitTag.innerHTML = `💰 利润: ¥${totalProfit.toFixed(2)}`;
+        profitTag.innerHTML = `利润: ¥${totalProfit.toFixed(2)}`;
         document.getElementById("detail-name").after(profitTag);
 
         // 状态标签
@@ -2252,7 +2252,7 @@
 
         document.getElementById("section-picked").innerHTML =
           pi.length > 0
-            ? `<div style="font-weight:800;margin:24px 0 12px 0;color:#6b7280;">✅ 已提取</div>` +
+            ? `<div style="font-weight:800;margin:24px 0 12px 0;color:#6b7280;">已提取商品</div>` +
               pi.map((i) => renderItem(i, false)).join("")
             : "";
 
@@ -2270,18 +2270,18 @@
           const unpaidTotal = grandTotal - paidTotal;
           summaryHTML = `
                 <div style="margin-top:24px;padding:20px;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border:1px solid #a7f3d0;border-radius:16px;">
-                    <div style="font-weight:800;font-size:15px;margin-bottom:16px;color:#065f46;">💰 结算概览</div>
+                    <div style="font-weight:800;font-size:15px;margin-bottom:16px;color:#065f46;">结算概览</div>
                     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;text-align:center;">
                         <div style="background:white;padding:14px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
                             <div style="font-size:11px;color:#6b7280;font-weight:600;margin-bottom:4px;">合计金额</div>
                             <div style="font-size:20px;font-weight:800;color:#1f2937;">¥${grandTotal.toFixed(2)}</div>
                         </div>
                         <div style="background:white;padding:14px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
-                            <div style="font-size:11px;color:#16a34a;font-weight:600;margin-bottom:4px;">✅ 已结算</div>
+                            <div style="font-size:11px;color:#16a34a;font-weight:600;margin-bottom:4px;">已结算</div>
                             <div style="font-size:20px;font-weight:800;color:#16a34a;">¥${paidTotal.toFixed(2)}</div>
                         </div>
                         <div style="background:white;padding:14px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
-                            <div style="font-size:11px;color:#dc2626;font-weight:600;margin-bottom:4px;">⏳ 未结算</div>
+                            <div style="font-size:11px;color:#dc2626;font-weight:600;margin-bottom:4px;">未结算</div>
                             <div style="font-size:20px;font-weight:800;color:${unpaidTotal > 0 ? "#dc2626" : "#16a34a"};">¥${unpaidTotal.toFixed(2)}</div>
                         </div>
                     </div>
@@ -2312,7 +2312,7 @@
           body: JSON.stringify({ order_id: currentOrder.id, items }),
         }).then(async (r) => {
           if (r.ok) {
-            showToast("✅ 提货成功");
+            showToast("提货成功");
             searchOrders().then(() => {
               const idx = window.cachedOrders
                 ? window.cachedOrders.findIndex((o) => o.id === savedOrderId)
@@ -2336,12 +2336,12 @@
         if (!currentOrder) return;
         const savedOrderId = currentOrder.id;
         showConfirm(
-          `⚠️ 确定要退款订单 #${currentOrder.id} 吗？\n所有商品将自动加回库存。`,
+          `确定要退款订单 #${currentOrder.id} 吗？\n所有商品将自动加回库存。`,
           () => {
             fetch(`/api/refund?id=${currentOrder.id}`, { method: "POST" })
               .then(async (r) => {
                 if (r.ok) {
-                  showToast("✅ 退款成功，库存已恢复");
+                  showToast("退款成功，库存已恢复");
                   searchOrders().then(() => {
                     const idx = window.cachedOrders
                       ? window.cachedOrders.findIndex(
@@ -2362,14 +2362,14 @@
         );
       }
 
-      // [新增] 补打小票功能
+      // 补打小票功能
       function doReprint() {
         if (!currentOrder) return;
         showToast("正在发送打印指令...", "success");
         fetch(`/api/reprint?id=${currentOrder.id}`, { method: "POST" })
           .then(async (r) => {
             if (r.ok) {
-              setTimeout(() => showToast("✅ 打印机已接收任务"), 500);
+              setTimeout(() => showToast("打印机已接收任务"), 500);
             } else {
               showToast("打印失败: " + (await r.text()), "error");
             }
@@ -2377,7 +2377,7 @@
           .catch((e) => showToast("网络错误", "error"));
       }
 
-      // [新增] 部分退款相关逻辑
+      // 部分退款业务逻辑
       function openPartialRefund() {
         if (!currentOrder) return;
 
@@ -2435,7 +2435,7 @@
           body: JSON.stringify({ order_id: currentOrder.id, items: items }),
         }).then(async (r) => {
           if (r.ok) {
-            showToast("✅ 部分退款成功");
+            showToast("部分退款成功");
             document.getElementById("partial-refund-modal").style.display =
               "none";
             searchOrders().then(() => {
@@ -2450,16 +2450,16 @@
         });
       }
 
-      // [新增] 删除订单逻辑
+      // 删除订单功能
       function deleteCurrentOrder() {
         if (!currentOrder) return;
         showConfirm(
-          `⚠️ 确定要彻底删除订单 #${currentOrder.id} 吗？\n删除后不可恢复！`,
+          `确定要彻底删除订单 #${currentOrder.id} 吗？\n删除后不可恢复！`,
           () => {
             fetch(`/api/order/delete?id=${currentOrder.id}`, { method: "POST" })
               .then(async (r) => {
                 if (r.ok) {
-                  showToast("✅ 删单成功");
+                  showToast("订单删除成功");
                   currentOrder = null;
                   document.getElementById("order-detail-card").style.display =
                     "none";
@@ -2477,15 +2477,15 @@
         );
       }
 
-      // [新增] 清空历史记录逻辑
+      // 清空历史记录功能
       function clearHistoryOrders() {
         showConfirm(
-          `⚠️ 危险操作！确定要清空所有历史记录吗？\n进行中的订单不会被删除，此操作不可逆转！`,
+          `危险操作！确定要清空所有历史记录吗？\n进行中的订单不会被删除，此操作不可逆转！`,
           () => {
             fetch(`/api/order/clear_history`, { method: "POST" })
               .then(async (r) => {
                 if (r.ok) {
-                  showToast("✅ 已清空历史记录");
+                  showToast("已清空历史记录");
                   currentOrder = null;
                   document.getElementById("order-detail-card").style.display =
                     "none";
@@ -2589,14 +2589,14 @@
           body: JSON.stringify(selected),
         }).then((r) => {
           if (r.ok) {
-            showToast("✅ 入库成功！");
+            showToast("入库成功");
             document.getElementById("procurement-modal").style.display = "none";
 
-            // 核心修复：入库后，自动同步最新价格到购物车
+            // 入库后同步最新价格至购物车
             fetch("/api/inventory/list")
               .then((r) => r.json())
               .then((list) => {
-                if (!list) list = []; // 防空
+                if (!list) list = []; // 检查并初始化列表
                 allProducts = list;
                 renderCategories(list);
                 renderProductGrid(list);
@@ -2658,7 +2658,7 @@
         fetch(`/api/inventory/list?q=${q}`)
           .then((r) => r.json())
           .then((list) => {
-            // [修复] 判空
+            // 检查并初始化列表
             if (!list) list = [];
             allProducts = list;
             renderCategories(list);
@@ -2771,8 +2771,8 @@
       function openProductModal(p) {
         document.getElementById("product-modal").style.display = "flex";
         document.getElementById("modal-title").innerText = p
-          ? "✏️ 编辑"
-          : "✨ 新增";
+          ? "编辑"
+          : "新增";
 
         // 打开弹窗时，更新 datalist 选项
         updateCategoryDatalist(allProducts);
@@ -2807,7 +2807,7 @@
           .then((r) => r.json())
           .then((res) => {
             if (res.success) {
-              showToast("✅ 保存成功");
+              showToast("保存成功");
               document.getElementById("product-modal").style.display = "none";
               loadInventory();
               loadProductGrid();
@@ -2897,7 +2897,7 @@
             }),
           }).then(async (r) => {
             if (r.ok) {
-              showToast(`✅ 订单 #${editingOrderId} 修改成功`);
+              showToast(`订单 #${editingOrderId} 修改成功`);
               document.getElementById("booking-modal").style.display = "none";
               cancelEditOrder();
               switchTab("orders");
@@ -2911,7 +2911,7 @@
             body: JSON.stringify({ customer_name: n, phone: p, items }),
           }).then((r) =>
             r.ok
-              ? (showToast("✅ 挂单成功"),
+              ? (showToast("挂单成功"),
                 (document.getElementById("booking-modal").style.display =
                   "none"),
                 clearCart())
@@ -2934,7 +2934,7 @@
         i.value = "";
       }
       function resetSystemData() {
-        showConfirm("⚠️ 危险确认：您确定要彻底清空系统中所有的商品、订单及销售流水，将系统完全初始化吗？（操作后不可恢复）", () => {
+        showConfirm("危险确认：您确定要彻底清空系统中所有的商品、订单及销售流水，将系统完全初始化吗？（操作后不可恢复）", () => {
           fetch("/api/system/reset", { method: "POST" }).then(async (r) => {
             showToast(await r.text(), "success");
             setTimeout(() => location.reload(), 1500);

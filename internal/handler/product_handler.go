@@ -57,7 +57,6 @@ func (h *ProductHandler) AddOrUpdate(w http.ResponseWriter, r *http.Request) {
 	var resp SaveResponse
 
 	if p.ID > 0 {
-		// 编辑模式
 		err := h.Inventory.EditProduct(p)
 		if err != nil {
 			resp = SaveResponse{Success: false, Message: err.Error()}
@@ -65,12 +64,10 @@ func (h *ProductHandler) AddOrUpdate(w http.ResponseWriter, r *http.Request) {
 			resp = SaveResponse{Success: true, Message: "修改成功"}
 		}
 	} else {
-		// 新增模式 (包含查重逻辑)
 		result, err := h.Inventory.AddProduct(p)
 		if err != nil {
 			resp = SaveResponse{Success: false, Message: err.Error()}
 		} else if result.IsDuplicate {
-			// 发现重复，返回特定的ID和消息
 			resp = SaveResponse{Success: false, Message: result.Message, ConflictID: result.ExistingID}
 		} else {
 			resp = SaveResponse{Success: true, Message: "入库成功"}

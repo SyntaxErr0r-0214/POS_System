@@ -39,7 +39,6 @@ func (s *CheckoutService) Checkout(req model.CheckoutRequest) error {
 	}
 
 	var sb strings.Builder
-	// [58mm] 分割线控制在31个字符，防止溢出
 	sb.WriteString("-------------------------------\n")
 	sb.WriteString(fmt.Sprintf("   %s\n", StoreName))
 
@@ -47,7 +46,6 @@ func (s *CheckoutService) Checkout(req model.CheckoutRequest) error {
 	sb.WriteString(fmt.Sprintf("单号:#%d\n", orderID))
 	sb.WriteString(fmt.Sprintf("时间:%s\n", time.Now().Format("06-01-02 15:04")))
 	sb.WriteString("-------------------------------\n")
-	// [58mm] 紧凑表头
 	sb.WriteString("商品名称         数量      金额\n")
 
 	var totalPrice float64 = 0
@@ -76,7 +74,7 @@ func (s *CheckoutService) Checkout(req model.CheckoutRequest) error {
 			Price: finalPrice, QtyOrdered: itemReq.Qty, QtyPicked: itemReq.Qty, QtyPaid: itemReq.Qty, Unit: p.Unit,
 		}
 		if itemReq.Unit != "" {
-			item.Unit = itemReq.Unit // 优先使用请求中传来的单位（针对临时商品）
+			item.Unit = itemReq.Unit
 		}
 		if err := s.OrderRepo.CreateOrderItem(tx, item); err != nil {
 			return err
@@ -85,15 +83,11 @@ func (s *CheckoutService) Checkout(req model.CheckoutRequest) error {
 		subtotal := finalPrice * float64(itemReq.Qty)
 		totalPrice += subtotal
 
-		// [58mm] 双行模式，严格控制宽度
-		// 如果有单位，则在商品名称后附加单位展示
 		displayUnit := ""
 		if item.Unit != "" {
 			displayUnit = "/" + item.Unit
 		}
 		sb.WriteString(fmt.Sprintf("%s\n", p.Name))
-		// 缩进1格 | 单价(7位) | x数量 | 总价(8位)
-		// 示例:  5.00/个   x2      10.00
 		sb.WriteString(fmt.Sprintf(" %-7.2f%-3s x%-3d %8.2f\n", finalPrice, displayUnit, itemReq.Qty, subtotal))
 	}
 
@@ -142,19 +136,16 @@ func (s *CheckoutService) Book(req model.BookingRequest) error {
 			return fmt.Errorf("商品ID %d 异常", itemReq.ID)
 		}
 
-		// 根据需求: 挂单时已付款即为已提走
 		qtyPickedNow := itemReq.QtyPaid
 		if qtyPickedNow > itemReq.Qty {
 			qtyPickedNow = itemReq.Qty
 		}
 
-		// 如果部分/全部被提走，需要立即扣除这部分库存(其他未提走的不扣)
 		if qtyPickedNow > 0 {
 			if err := s.ProductRepo.DecreaseStock(tx, p.ID, qtyPickedNow); err != nil {
 				return err
 			}
 
-			// 加入打印小票列表
 			hasPaid = true
 			unit := itemReq.Unit
 			if unit == "" {
@@ -167,7 +158,7 @@ func (s *CheckoutService) Book(req model.BookingRequest) error {
 
 		item := model.OrderItem{
 			OrderID: int(orderID), ProductID: p.ID, ProductName: p.Name,
-			Price: p.Price, QtyOrdered: itemReq.Qty, QtyPicked: qtyPickedNow, QtyPaid: itemReq.QtyPaid, Unit: itemReq.Unit, // 预订商品带上单位
+			Price: p.Price, QtyOrdered: itemReq.Qty, QtyPicked: qtyPickedNow, QtyPaid: itemReq.QtyPaid, Unit: itemReq.Unit,
 		}
 		if item.Unit == "" {
 			item.Unit = p.Unit
@@ -203,7 +194,7 @@ func (s *CheckoutService) Book(req model.BookingRequest) error {
 			sb.WriteString(fmt.Sprintf(" %-7.2f%-3s x%-3d %8.2f\n", pe.Price, displayUnit, pe.Qty, sub))
 		}
 		sb.WriteString("-------------------------------\n")
-		sb.WriteString(fmt.Sprintf("本次实收:      RMB %8.2f\n", paidTotal)) // Removed specific labels, just a simple string
+		sb.WriteString(fmt.Sprintf("本次实收:      RMB %8.2f\n", paidTotal))
 		sb.WriteString("-------------------------------\n")
 		sb.WriteString("\n\n\n")
 		s.printAsync(sb.String())
@@ -400,7 +391,6 @@ func (s *CheckoutService) Pickup(req model.PickupRequest) error {
 		return err
 	}
 
-	// --- 打印（仅打印本次提货的商品，简洁样式） ---
 	if len(pickedMap) == 0 {
 		return nil
 	}
@@ -529,7 +519,7 @@ func (s *CheckoutService) ReprintTicket(orderID int) error {
 	return nil
 }
 
-// PartialRefundRequest (保持不变)
+// PartialRefundRequest 部分退款请求
 type PartialRefundRequest struct {
 	OrderID int `json:"order_id"`
 	Items   []struct {
@@ -538,7 +528,7 @@ type PartialRefundRequest struct {
 	} `json:"items"`
 }
 
-// PartialRefund (保持不变)
+// PartialRefund 处理部分退款
 func (s *CheckoutService) PartialRefund(req PartialRefundRequest) error {
 	tx, err := s.DB.Begin()
 	if err != nil {
@@ -599,7 +589,7 @@ func (s *CheckoutService) PartialRefund(req PartialRefundRequest) error {
 	return tx.Commit()
 }
 
-// RefundOrder (保持不变)
+// RefundOrder 处理全单退款
 func (s *CheckoutService) RefundOrder(orderID int) error {
 	tx, err := s.DB.Begin()
 	if err != nil {

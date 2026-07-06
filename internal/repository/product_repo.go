@@ -55,9 +55,7 @@ func (r *ProductRepo) GetAll() ([]model.Product, error) {
 	}
 	defer rows.Close()
 
-	// [修复] 显式初始化为空切片，确保返回 [] 而不是 null
 	products := make([]model.Product, 0)
-
 	for rows.Next() {
 		var p model.Product
 		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock, &p.Unit)
@@ -66,7 +64,7 @@ func (r *ProductRepo) GetAll() ([]model.Product, error) {
 	return products, nil
 }
 
-// SearchInventory 库存搜索 (支持搜分类名)
+// SearchInventory 库存搜索
 func (r *ProductRepo) SearchInventory(query string) ([]model.Product, error) {
 	param := "%" + query + "%"
 	rows, err := r.DB.Query("SELECT id, barcode, name, category, price, cost_price, stock, unit FROM products WHERE name LIKE ? OR barcode LIKE ? OR category LIKE ? ORDER BY id DESC", param, param, param)
@@ -75,9 +73,7 @@ func (r *ProductRepo) SearchInventory(query string) ([]model.Product, error) {
 	}
 	defer rows.Close()
 
-	// [修复] 显式初始化为空切片
 	list := make([]model.Product, 0)
-
 	for rows.Next() {
 		var p model.Product
 		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock, &p.Unit)
@@ -95,9 +91,7 @@ func (r *ProductRepo) Search(query string) ([]model.Product, error) {
 	}
 	defer rows.Close()
 
-	// [修复] 显式初始化为空切片
 	list := make([]model.Product, 0)
-
 	for rows.Next() {
 		var p model.Product
 		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock, &p.Unit)
@@ -106,7 +100,7 @@ func (r *ProductRepo) Search(query string) ([]model.Product, error) {
 	return list, nil
 }
 
-// Create 新增 (写入 Category)
+// Create 新增商品
 func (r *ProductRepo) Create(p model.Product) error {
 	if p.Unit == "" {
 		p.Unit = "个"
@@ -116,7 +110,7 @@ func (r *ProductRepo) Create(p model.Product) error {
 	return err
 }
 
-// Update 更新 (写入 Category)
+// Update 更新商品
 func (r *ProductRepo) Update(p model.Product) error {
 	if p.Unit == "" {
 		p.Unit = "个"
@@ -215,7 +209,6 @@ func (r *ProductRepo) BatchProcure(items []map[string]interface{}) error {
 			return err
 		}
 
-		// 同步价格到待处理订单中价格为0的明细（临时商品采购后同步售价）
 		if price > 0 {
 			if _, err := tx.Exec(`UPDATE order_items SET price = ? WHERE product_id = ? AND price = 0
 				AND order_id IN (SELECT id FROM orders WHERE status = 'Pending')`, price, id); err != nil {
@@ -227,8 +220,7 @@ func (r *ProductRepo) BatchProcure(items []map[string]interface{}) error {
 	return tx.Commit()
 }
 
-// UpdateStock 更新库存 (加库存/减库存通用版)
-// qty > 0 表示加库存 (退货/入库)，qty < 0 表示减库存
+// UpdateStock 更新库存
 func (r *ProductRepo) UpdateStock(tx *sql.Tx, productID int64, qty int) error {
 	_, err := tx.Exec("UPDATE products SET stock = stock + ? WHERE id = ?", qty, productID)
 	return err

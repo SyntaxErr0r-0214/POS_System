@@ -24,8 +24,8 @@ type OrderItem struct {
 	QtyOrdered  int     `json:"qty_ordered"`
 	QtyPicked   int     `json:"qty_picked"`
 	QtyRefunded int     `json:"qty_refunded"`
-	Unit        string  `json:"unit"`     // 新增：单位
-	QtyPaid     int     `json:"qty_paid"` // 新增：已付款数量
+	Unit        string  `json:"unit"`
+	QtyPaid     int     `json:"qty_paid"`
 }
 
 // CheckoutRequest 结算请求
@@ -33,8 +33,8 @@ type CheckoutRequest struct {
 	Items []struct {
 		ID    int     `json:"id"`
 		Qty   int     `json:"qty"`
-		Price float64 `json:"price"` // <--- 关键：必须要有这个字段，不然 Service 层会报错
-		Unit  string  `json:"unit"`  // 新增：单位 (针对临时商品)
+		Price float64 `json:"price"`
+		Unit  string  `json:"unit"`
 	} `json:"items"`
 }
 

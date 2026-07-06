@@ -25,12 +25,11 @@ type ReportResponse struct {
 	PieData      []float64 `json:"pie_data"`
 }
 
-// GenerateReport 生成报表
+// GenerateReport 生成经营分析报表
 func (s *ReportService) GenerateReport(timeType string) (ReportResponse, error) {
 	now := time.Now()
 	var start, end time.Time
 
-	// 1. 确定时间范围 (逻辑保持不变)
 	switch timeType {
 	case "day":
 		start = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
@@ -55,24 +54,15 @@ func (s *ReportService) GenerateReport(timeType string) (ReportResponse, error) 
 		return ReportResponse{}, err
 	}
 
-	// 2. 聚合数据
 	var resp ReportResponse
-
-	// [新增] 用于订单去重的 Map
 	uniqueOrderIDs := make(map[int]bool)
-
 	timeGroup := make(map[string]float64)
 	productGroup := make(map[string]float64)
 
 	for _, r := range records {
-		// 记录订单ID以便统计总单数
 		uniqueOrderIDs[r.OrderID] = true
-
 		revenue := r.Price * float64(r.Qty)
 
-		// [优化] 利润计算逻辑：
-		// 如果售价为0 (赠品/临时商品)，强制忽略成本，避免出现负利润
-		// 如果你希望真实反映亏损，可以把这个 if 去掉
 		cost := r.CostPrice
 		if r.Price == 0 {
 			cost = 0
@@ -82,11 +72,8 @@ func (s *ReportService) GenerateReport(timeType string) (ReportResponse, error) 
 
 		resp.TotalRevenue += revenue
 		resp.TotalProfit += profit
-
-		// 饼图数据
 		productGroup[r.ProductName] += float64(r.Qty)
 
-		// 条形图数据
 		var key string
 		switch timeType {
 		case "day":
@@ -99,10 +86,8 @@ func (s *ReportService) GenerateReport(timeType string) (ReportResponse, error) 
 		timeGroup[key] += revenue
 	}
 
-	// [修正] 真正的订单数 = 去重后的ID数量
 	resp.OrderCount = len(uniqueOrderIDs)
 
-	// 3. 整理图表数据 (保持原逻辑)
 	var keys []string
 	for k := range timeGroup {
 		keys = append(keys, k)

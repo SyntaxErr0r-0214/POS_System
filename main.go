@@ -12,21 +12,18 @@ import (
 )
 
 func main() {
-	// 1. 设置时区
 	loc, err := time.LoadLocation("Asia/Shanghai")
 	if err != nil {
 		loc = time.FixedZone("CST", 8*3600)
 	}
 	time.Local = loc
 
-	// 2. 初始化数据库
 	db := database.Init()
 	defer db.Close()
 
 	p := printer.GetPrinter()
 	printer.SetPrinter(p)
 
-	// 3. 依赖注入
 	pRepo := repository.NewProductRepo(db)
 	oRepo := repository.NewOrderRepo(db)
 	rRepo := repository.NewReportRepo(db)
@@ -39,29 +36,22 @@ func main() {
 	oHandler := &handler.OrderHandler{Service: checkoutSvc}
 	rHandler := &handler.ReportHandler{Service: reportSvc}
 	sysHandler := &handler.SystemHandler{DB: db}
-
-	// 👇【新增】测试数据生成器 Handler
 	testHandler := &handler.TestHandler{
 		PRepo:     pRepo,
 		ORepo:     oRepo,
 		Inventory: inventorySvc,
 	}
 
-	// 4. 路由注册
 	http.Handle("/", http.FileServer(http.Dir("./static")))
 
-	// 业务接口
 	http.HandleFunc("/api/scan", pHandler.Scan)
 	http.HandleFunc("/api/checkout", oHandler.Checkout)
 	http.HandleFunc("/api/book", oHandler.Book)
 	http.HandleFunc("/api/orders", oHandler.Search)
 	http.HandleFunc("/api/pickup", oHandler.Pickup)
-	// 👇 新增这一行
 	http.HandleFunc("/api/order/update", oHandler.UpdateOrder)
 	http.HandleFunc("/api/refund", oHandler.Refund)
-	// 👇 新增：采购清单接口
 	http.HandleFunc("/api/procurement", oHandler.GetProcurement)
-	// 👇 新增：删除和清空
 	http.HandleFunc("/api/order/delete", oHandler.DeleteOrder)
 	http.HandleFunc("/api/order/clear_history", oHandler.ClearHistory)
 
@@ -69,21 +59,18 @@ func main() {
 	http.HandleFunc("/api/inventory/list", pHandler.ListInventory)
 	http.HandleFunc("/api/inventory/save", pHandler.AddOrUpdate)
 	http.HandleFunc("/api/inventory/delete", pHandler.DeleteProduct)
-	http.HandleFunc("/api/inventory/batch-delete", pHandler.BatchDelete)           // 👈 新增这一行
-	http.HandleFunc("/api/inventory/batch-category", pHandler.BatchUpdateCategory) // 👈 新增这一行
-	// 👇 新增：批量采购入库接口
+	http.HandleFunc("/api/inventory/batch-delete", pHandler.BatchDelete)
+	http.HandleFunc("/api/inventory/batch-category", pHandler.BatchUpdateCategory)
 	http.HandleFunc("/api/inventory/procure", pHandler.Procure)
 
 	http.HandleFunc("/api/report", rHandler.GetReport)
-	http.HandleFunc("/api/reprint", oHandler.Reprint) // 👈 新增这一行
+	http.HandleFunc("/api/reprint", oHandler.Reprint)
 	http.HandleFunc("/api/refund/partial", oHandler.DoPartialRefund)
 
-	// 系统管理接口
 	http.HandleFunc("/api/system/backup", sysHandler.Backup)
 	http.HandleFunc("/api/system/restore", sysHandler.Restore)
 	http.HandleFunc("/api/system/reset", sysHandler.Reset)
 
-	// 👇【新增】测试数据生成接口 (浏览器访问即可生成)
 	http.HandleFunc("/api/debug/seed", testHandler.SeedData)
 
 	log.Println("Start: http://localhost:8080 (TimeZone: Asia/Shanghai)")

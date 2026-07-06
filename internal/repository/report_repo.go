@@ -21,18 +21,13 @@ type SaleRecord struct {
 	Price       float64
 	CostPrice   float64
 	Qty         int
-	// 如果你之前在 model 里加了 QtyRefunded 这里可以加，
-	// 但为了简单，我们在下面函数里直接处理，这里不需要改结构体
 }
 
 // GetSalesData 获取指定时间范围内的所有销售明细
 func (r *ReportRepo) GetSalesData(start, end time.Time) ([]SaleRecord, error) {
-	// 将 time.Time 转换为 UTC 后格式化，因为 SQLite 的 CURRENT_TIMESTAMP 存储的是 UTC 时间
 	startStr := start.UTC().Format("2006-01-02 15:04:05")
 	endStr := end.UTC().Format("2006-01-02 15:04:05")
 
-	// 查询包含已完成(Completed)和部分退款(Partial)的订单
-	// 同时查出 qty_refunded 用于计算净销量
 	sqlStr := `
 		SELECT o.id, o.created_at, oi.product_name, oi.price, p.cost_price, oi.qty_picked, COALESCE(oi.qty_refunded, 0)
 		FROM order_items oi
@@ -42,7 +37,6 @@ func (r *ReportRepo) GetSalesData(start, end time.Time) ([]SaleRecord, error) {
 		ORDER BY o.created_at ASC
 	`
 	rows, err := r.DB.Query(sqlStr, startStr, endStr)
-	// [修复] 这里必须检查 err
 	if err != nil {
 		return nil, err
 	}
@@ -54,18 +48,14 @@ func (r *ReportRepo) GetSalesData(start, end time.Time) ([]SaleRecord, error) {
 		var cost sql.NullFloat64
 		var qtyPicked, qtyRefunded int
 
-		// Scan 必须对应 SQL 里的字段顺序
 		err := rows.Scan(&s.OrderID, &s.CreatedAt, &s.ProductName, &s.Price, &cost, &qtyPicked, &qtyRefunded)
 		if err != nil {
 			continue
 		}
 
 		s.CostPrice = cost.Float64
-
-		// [核心逻辑] 有效销量 = 拿走的 - 退掉的
 		s.Qty = qtyPicked - qtyRefunded
 
-		// 只有当有效销量 > 0 时才计入报表
 		if s.Qty > 0 {
 			list = append(list, s)
 		}

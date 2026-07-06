@@ -8,10 +8,10 @@ import (
 	_ "modernc.org/sqlite" // 使用纯 Go 的 SQLite 驱动
 )
 
+// Init 初始化数据库连接与自动表迁移
 func Init() *sql.DB {
 	dbPath := "pos_data.db"
 
-	// 确保文件存在
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		file, err := os.Create(dbPath)
 		if err != nil {
@@ -25,7 +25,6 @@ func Init() *sql.DB {
 		log.Fatal(err)
 	}
 
-	// 1. 创建基础表结构
 	createTables := `
 	CREATE TABLE IF NOT EXISTS products (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,7 +59,6 @@ func Init() *sql.DB {
 		log.Fatal(err)
 	}
 
-	// 2. 检查并添加 qty_refunded 列 (部分退款支持)
 	var count int
 	err = db.QueryRow("SELECT count(*) FROM pragma_table_info('order_items') WHERE name='qty_refunded'").Scan(&count)
 	if count == 0 {
@@ -71,19 +69,16 @@ func Init() *sql.DB {
 		}
 	}
 
-	// 3. [新增] 检查并添加 daily_seq 列 (每日流水号)
 	var countSeq int
 	err = db.QueryRow("SELECT count(*) FROM pragma_table_info('orders') WHERE name='daily_seq'").Scan(&countSeq)
 	if countSeq == 0 {
 		log.Println("正在升级数据库: 添加 daily_seq 列...")
-		// 旧数据默认设为 0
 		_, err = db.Exec("ALTER TABLE orders ADD COLUMN daily_seq INTEGER DEFAULT 0")
 		if err != nil {
 			log.Fatal("升级数据库(daily_seq)失败:", err)
 		}
 	}
 
-	// 4. [新增] 检查并添加 products.unit 列
 	var countPUnit int
 	err = db.QueryRow("SELECT count(*) FROM pragma_table_info('products') WHERE name='unit'").Scan(&countPUnit)
 	if countPUnit == 0 {
@@ -94,7 +89,6 @@ func Init() *sql.DB {
 		}
 	}
 
-	// 5. [新增] 检查并添加 order_items.unit 列
 	var countOUnit int
 	err = db.QueryRow("SELECT count(*) FROM pragma_table_info('order_items') WHERE name='unit'").Scan(&countOUnit)
 	if countOUnit == 0 {
@@ -105,7 +99,6 @@ func Init() *sql.DB {
 		}
 	}
 
-	// 6. [新增] 检查并添加 order_items.qty_paid 列 (预付款追踪)
 	var countQP int
 	err = db.QueryRow("SELECT count(*) FROM pragma_table_info('order_items') WHERE name='qty_paid'").Scan(&countQP)
 	if countQP == 0 {

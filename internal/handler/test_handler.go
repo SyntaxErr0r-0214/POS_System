@@ -16,9 +16,8 @@ type TestHandler struct {
 	Inventory *service.InventoryService
 }
 
-// SeedData 一键生成测试数据
+// SeedData 生成系统测试数据
 func (h *TestHandler) SeedData(w http.ResponseWriter, r *http.Request) {
-	// 1. 预设商品库 (如果库存为空，就加这些)
 	products := []model.Product{
 		{Barcode: "1001", Name: "农夫山泉 550ml", Price: 2.00, CostPrice: 1.20, Stock: 100},
 		{Barcode: "1002", Name: "可口可乐 330ml", Price: 3.00, CostPrice: 2.20, Stock: 200},
@@ -32,50 +31,37 @@ func (h *TestHandler) SeedData(w http.ResponseWriter, r *http.Request) {
 		{Barcode: "1010", Name: "洁柔抽纸 (提)", Price: 19.90, CostPrice: 14.00, Stock: 100},
 	}
 
-	// 批量插入商品
 	for _, p := range products {
-		// 简单查重：如果条码不存在才插入
 		if exist, _ := h.PRepo.FindByBarcode(p.Barcode); exist == nil {
 			h.PRepo.Create(p)
 		}
 	}
 
-	// 重新获取所有商品（我们要用到它们的真实ID）
 	allProducts, _ := h.PRepo.GetAll()
 	if len(allProducts) == 0 {
 		w.Write([]byte("错误：商品库为空"))
 		return
 	}
 
-	// 2. 生成过去 7 天的订单
 	tx, _ := h.ORepo.DB.Begin()
 	defer tx.Commit()
 
 	count := 0
-	// 遍历过去 7 天 (从 7天前 到 昨天)
 	for i := 7; i >= 0; i-- {
-		// 生成当天的随机时间
 		dayBase := time.Now().AddDate(0, 0, -i)
-
-		// 每天生成 3-8 个订单
 		ordersPerDay := rand.Intn(6) + 3
 
 		for j := 0; j < ordersPerDay; j++ {
-			// 随机时间：上午9点 ~ 晚上9点
 			randomHour := rand.Intn(12) + 9
 			orderTime := time.Date(dayBase.Year(), dayBase.Month(), dayBase.Day(), randomHour, rand.Intn(60), 0, 0, time.Local)
 
-			// 创建历史订单
 			orderID, _ := h.ORepo.CreateOrderWithTime(tx, "散客", "", "Completed", orderTime)
 
-			// 每个订单随机买 1-5 种商品
 			itemsCount := rand.Intn(5) + 1
 			for k := 0; k < itemsCount; k++ {
-				// 随机挑一个商品
 				p := allProducts[rand.Intn(len(allProducts))]
-				qty := rand.Intn(3) + 1 // 买 1-3 个
+				qty := rand.Intn(3) + 1
 
-				// 插入明细
 				item := model.OrderItem{
 					OrderID: int(orderID), ProductID: p.ID, ProductName: p.Name,
 					Price: p.Price, QtyOrdered: qty, QtyPicked: qty,
@@ -86,5 +72,5 @@ func (h *TestHandler) SeedData(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Write([]byte(fmt.Sprintf("✅ 成功！已补全商品库，并生成了 %d 条历史订单数据（覆盖过去7天）。\n现在请去【营收报表】刷新查看！", count)))
+	w.Write([]byte(fmt.Sprintf("测试数据生成成功！已补全商品库，并生成 %d 条历史订单数据（覆盖过去7天）。", count)))
 }
