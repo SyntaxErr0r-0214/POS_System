@@ -3,9 +3,9 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
-	"pos-demo/internal/model"
-	"pos-demo/internal/repository"
-	"pos-demo/internal/service"
+	"modern-pos/internal/model"
+	"modern-pos/internal/repository"
+	"modern-pos/internal/service"
 	"strconv"
 )
 

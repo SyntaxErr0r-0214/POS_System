@@ -1236,7 +1236,7 @@
             ></div>
             <button
               class="btn btn-outline"
-              onclick="window.location.href = '/api/system/backup'"
+              onclick="backupSystemData()"
             >
               备份数据
             </button>
@@ -2919,25 +2919,62 @@
           );
         }
       }
+      function getAdminToken() {
+        let token = sessionStorage.getItem("admin_token");
+        if (!token) {
+          token = prompt("执行高危系统操作，请输入系统管理员验证凭证（默认：admin123）：");
+          if (token) {
+            sessionStorage.setItem("admin_token", token);
+          }
+        }
+        return token;
+      }
+      function backupSystemData() {
+        const token = getAdminToken();
+        if (!token) return;
+        window.location.href = `/api/system/backup?token=${encodeURIComponent(token)}`;
+      }
       function restoreData(i) {
         if (!i.files[0]) return;
-        showConfirm("恢复将覆盖数据，确定？", () => {
+        const token = getAdminToken();
+        if (!token) {
+          i.value = "";
+          return;
+        }
+        showConfirm("恢复将覆盖当前系统数据，确定继续？", () => {
           const fd = new FormData();
           fd.append("db_file", i.files[0]);
-          fetch("/api/system/restore", { method: "POST", body: fd }).then(
-            async (r) => {
+          fetch(`/api/system/restore?token=${encodeURIComponent(token)}`, {
+            method: "POST",
+            headers: { "X-Admin-Token": token },
+            body: fd
+          }).then(async (r) => {
+            if (r.ok) {
               showToast(await r.text());
-              if (r.ok) location.reload();
-            },
-          );
+              location.reload();
+            } else {
+              showToast("恢复数据失败：" + (await r.text()), "error");
+              if (r.status === 401) sessionStorage.removeItem("admin_token");
+            }
+          });
         });
         i.value = "";
       }
       function resetSystemData() {
+        const token = getAdminToken();
+        if (!token) return;
         showConfirm("危险确认：您确定要彻底清空系统中所有的商品、订单及销售流水，将系统完全初始化吗？（操作后不可恢复）", () => {
-          fetch("/api/system/reset", { method: "POST" }).then(async (r) => {
-            showToast(await r.text(), "success");
-            setTimeout(() => location.reload(), 1500);
+          fetch(`/api/system/reset?token=${encodeURIComponent(token)}`, {
+            method: "POST",
+            headers: { "X-Admin-Token": token }
+          }).then(async (r) => {
+            if (r.ok) {
+              showToast(await r.text(), "success");
+              setTimeout(() => location.reload(), 1500);
+            } else {
+              showToast("清空失败：" + (await r.text()), "error");
+              if (r.status === 401) sessionStorage.removeItem("admin_token");
+            }
           });
         });
       }

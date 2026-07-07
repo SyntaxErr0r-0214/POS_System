@@ -3,7 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
-	"pos-demo/internal/model"
+	"modern-pos/internal/model"
 	"strings"
 )
 
@@ -35,16 +35,36 @@ func (r *ProductRepo) FindByID(tx *sql.Tx, id int) (*model.Product, error) {
 	return &p, nil
 }
 
-// DecreaseStock 扣减库存
+// DecreaseStock 扣减库存，带防超卖并发检查
 func (r *ProductRepo) DecreaseStock(tx *sql.Tx, productID int, qty int) error {
-	_, err := tx.Exec("UPDATE products SET stock = stock - ? WHERE id = ?", qty, productID)
-	return err
+	res, err := tx.Exec("UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?", qty, productID, qty)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return fmt.Errorf("库存扣减失败：并发交易下库存不足或商品不存在 (商品ID: %d)", productID)
+	}
+	return nil
 }
 
 // IncreaseStock 增加库存
 func (r *ProductRepo) IncreaseStock(tx *sql.Tx, productID int, qty int) error {
-	_, err := tx.Exec("UPDATE products SET stock = stock + ? WHERE id = ?", qty, productID)
-	return err
+	res, err := tx.Exec("UPDATE products SET stock = stock + ? WHERE id = ?", qty, productID)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return fmt.Errorf("库存增加失败：商品不存在 (商品ID: %d)", productID)
+	}
+	return nil
 }
 
 // GetAll 获取所有商品
@@ -222,6 +242,16 @@ func (r *ProductRepo) BatchProcure(items []map[string]interface{}) error {
 
 // UpdateStock 更新库存
 func (r *ProductRepo) UpdateStock(tx *sql.Tx, productID int64, qty int) error {
-	_, err := tx.Exec("UPDATE products SET stock = stock + ? WHERE id = ?", qty, productID)
-	return err
+	res, err := tx.Exec("UPDATE products SET stock = stock + ? WHERE id = ?", qty, productID)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return fmt.Errorf("库存更新失败：商品不存在 (商品ID: %d)", productID)
+	}
+	return nil
 }

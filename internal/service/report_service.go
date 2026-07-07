@@ -1,7 +1,7 @@
 package service
 
 import (
-	"pos-demo/internal/repository"
+	"modern-pos/internal/repository"
 	"sort"
 	"time"
 )

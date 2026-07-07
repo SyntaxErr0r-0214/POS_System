@@ -4,9 +4,9 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"pos-demo/internal/model"
-	"pos-demo/internal/repository"
-	"pos-demo/pkg/printer"
+	"modern-pos/internal/model"
+	"modern-pos/internal/repository"
+	"modern-pos/pkg/printer"
 	"strings"
 	"time"
 )
@@ -563,8 +563,16 @@ func (s *CheckoutService) PartialRefund(req PartialRefundRequest) error {
 			return fmt.Errorf("退款数量超出购买量")
 		}
 
-		if _, err := tx.Exec("UPDATE order_items SET qty_refunded = qty_refunded + ? WHERE id = ?", refundItem.Qty, refundItem.ItemID); err != nil {
+		res, err := tx.Exec("UPDATE order_items SET qty_refunded = qty_refunded + ? WHERE id = ? AND qty_refunded + ? <= qty_picked", refundItem.Qty, refundItem.ItemID, refundItem.Qty)
+		if err != nil {
 			return err
+		}
+		affected, err := res.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if affected == 0 {
+			return fmt.Errorf("退款处理失败：并发操作下退款总数超出了商品实际可退量 (明细ID: %d)", refundItem.ItemID)
 		}
 
 		if err := s.ProductRepo.UpdateStock(tx, pid, refundItem.Qty); err != nil {

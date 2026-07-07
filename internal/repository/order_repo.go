@@ -2,7 +2,8 @@ package repository
 
 import (
 	"database/sql"
-	"pos-demo/internal/model"
+	"fmt"
+	"modern-pos/internal/model"
 	"time"
 )
 
@@ -151,10 +152,20 @@ func (r *OrderRepo) GetItemByID(tx *sql.Tx, itemID int) (*model.OrderItem, error
 	return &i, nil
 }
 
-// UpdatePickedQty 更新已取数量并同步付款状态 (提货即代表付款)
+// UpdatePickedQty 更新已取数量并同步付款状态 (提货即代表付款)，带防超额提货并发检查
 func (r *OrderRepo) UpdatePickedQty(tx *sql.Tx, itemID int, qty int) error {
-	_, err := tx.Exec("UPDATE order_items SET qty_picked = qty_picked + ?, qty_paid = MAX(qty_paid, qty_picked + ?) WHERE id = ?", qty, qty, itemID)
-	return err
+	res, err := tx.Exec("UPDATE order_items SET qty_picked = qty_picked + ?, qty_paid = MAX(qty_paid, qty_picked + ?) WHERE id = ? AND qty_picked + ? <= qty_ordered", qty, qty, itemID, qty)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return fmt.Errorf("提货履约失败：并发操作下提货数量超出剩余待领量 (明细ID: %d)", itemID)
+	}
+	return nil
 }
 
 // CheckOrderComplete 检查订单是否全部取完
@@ -185,10 +196,20 @@ func (r *OrderRepo) UpdateOrderInfo(tx *sql.Tx, orderID int, customerName, phone
 	return err
 }
 
-// UpdateStatus 更新订单状态
+// UpdateStatus 更新订单状态，带并发行数检查
 func (r *OrderRepo) UpdateStatus(tx *sql.Tx, orderID int, status string) error {
-	_, err := tx.Exec("UPDATE orders SET status = ? WHERE id = ?", status, orderID)
-	return err
+	res, err := tx.Exec("UPDATE orders SET status = ? WHERE id = ?", status, orderID)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return fmt.Errorf("订单状态更新失败：订单不存在或已经被并发更改")
+	}
+	return nil
 }
 
 // HasActiveOrders 检查商品是否有未完成订单

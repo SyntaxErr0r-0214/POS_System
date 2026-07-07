@@ -3,8 +3,8 @@ package service
 import (
 	"errors"
 	"fmt"
-	"pos-demo/internal/model"
-	"pos-demo/internal/repository"
+	"modern-pos/internal/model"
+	"modern-pos/internal/repository"
 	"time"
 )
 

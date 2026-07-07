@@ -3,7 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
-	"pos-demo/internal/service"
+	"modern-pos/internal/service"
 )
 
 type ReportHandler struct {

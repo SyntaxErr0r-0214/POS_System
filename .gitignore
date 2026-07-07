@@ -1,0 +1,68 @@
+# ==============================================================================
+# 极简智能收银台系统 - Git 版本控制忽略规则 (.gitignore)
+# ==============================================================================
+
+# 1. 编译产物与可执行文件 (Compiled Binaries & Build Outputs)
+# 排除各类跨平台编译生成的二进制文件及测试产物，避免仓库体积膨胀
+/modern-pos
+/modern-pos-*
+/pos-demo*
+/*.exe
+/*.exe~
+/*.dll
+/*.so
+/*.dylib
+/build/
+/dist/
+/bin/
+tmp_*
+*.test
+*.out
+*.prof
+
+# 2. 数据库与本地运行时数据 (Database & Runtime Data)
+# 排除 SQLite 数据库文件、热备份快照及预写日志 (WAL/SHM)，防止本地交易数据或敏感信息提交至代码库
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+/pos_data*.db
+/backups/
+
+# 3. 环境变量与敏感配置 (Environment Variables & Secrets)
+# 排除包含密码、管理凭证及私钥的本地配置文件
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+
+# 4. 日志文件与临时缓存 (Logs & Temporary Files)
+# 排除系统运行时产生的日志与操作系统生成的索引文件
+*.log
+/logs/
+/tmp/
+*.tmp
+*.bak
+*.swp
+*~
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
+# 5. IDE 与编辑器本地工程配置 (IDE & Editor Configurations)
+# 排除开发工具的个人配置，避免团队协同工作时产生工作区环境冲突
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# 6. Go 工作区与依赖缓存 (Go Workspace & Vendor)
+/vendor/
+go.work
+go.work.sum

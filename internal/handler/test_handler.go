@@ -1,12 +1,14 @@
+//go:build debug
+
 package handler
 
 import (
 	"fmt"
 	"math/rand"
 	"net/http"
-	"pos-demo/internal/model"
-	"pos-demo/internal/repository"
-	"pos-demo/internal/service"
+	"modern-pos/internal/model"
+	"modern-pos/internal/repository"
+	"modern-pos/internal/service"
 	"time"
 )
 

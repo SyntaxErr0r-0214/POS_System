@@ -8,9 +8,13 @@ import (
 	_ "modernc.org/sqlite" // 使用纯 Go 的 SQLite 驱动
 )
 
-// Init 初始化数据库连接与自动表迁移
+// Init 初始化默认数据库连接与自动表迁移
 func Init() *sql.DB {
-	dbPath := "pos_data.db"
+	return InitDB("pos_data.db")
+}
+
+// InitDB 根据指定路径初始化数据库连接与自动表迁移（支持单元测试传入自定义临时路径）
+func InitDB(dbPath string) *sql.DB {
 
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		file, err := os.Create(dbPath)
@@ -23,6 +27,19 @@ func Init() *sql.DB {
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	// 开启 WAL 日志模式及高并发参数配置，杜绝多并发下的 database is locked 错误并提升读写性能
+	pragmas := []string{
+		"PRAGMA journal_mode = WAL;",
+		"PRAGMA busy_timeout = 5000;",
+		"PRAGMA synchronous = NORMAL;",
+		"PRAGMA foreign_keys = ON;",
+	}
+	for _, p := range pragmas {
+		if _, err := db.Exec(p); err != nil {
+			log.Printf("配置数据库并发参数失败 [%s]: %v", p, err)
+		}
 	}
 
 	createTables := `

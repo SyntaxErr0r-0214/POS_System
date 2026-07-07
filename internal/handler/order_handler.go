@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"pos-demo/internal/model"
-	"pos-demo/internal/service"
+	"modern-pos/internal/model"
+	"modern-pos/internal/service"
 )
 
 type OrderHandler struct {

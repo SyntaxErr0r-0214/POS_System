@@ -1,5 +1,12 @@
 # 极简智能收银台系统 (Modern POS System) - 技术架构与设计规范
 
+[![WeChat](https://img.shields.io/badge/WeChat-Connect-07c160?logo=wechat&logoColor=white)](docs/images/IMG_1227.png)
+![Go Version](https://img.shields.io/badge/Go-1.20+-00ADD8?logo=go&logoColor=white)
+![Database](https://img.shields.io/badge/Database-SQLite3%20(Pure%20Go)-003B57?logo=sqlite&logoColor=white)
+![Frontend](https://img.shields.io/badge/Frontend-Vanilla%20JS%20%7C%20HTML5%20%7C%20CSS3-E34F26?logo=html5&logoColor=white)
+![Architecture](https://img.shields.io/badge/Architecture-RESTful%20%7C%20Single%20Binary-4A154B)
+![License](https://img.shields.io/badge/License-MIT-blue.svg)
+
 本系统是一款基于 Go 语言和 SQLite3 嵌入式数据库构建的轻量级、高性能、无依赖现代收银与进销存管理系统。系统放弃了传统的重型 Web 框架和复杂的前端构建工具链，采用经典的单体分层架构与纯粹的 DOM/RESTful API 交互模式，专注于零售与特产门店在称重计价、多维度预付款追踪、临时商品零价挂单以及订单防呆修改等复杂业务场景下的底层高可靠性与计算精确性。
 
 ---
@@ -8,7 +15,7 @@
 
 在软件工程设计上，本系统奉行“极简主义”与“高内聚、低耦合”的架构原则，追求极致的运行效率与零维护心智负担：
 
-1. **去依赖化后端 (Dependency-Free Backend)**：后端完全基于 Go 1.21+ 标准库的 `net/http` 包构建纯 RESTful API，不引入任何第三方 HTTP 路由框架（如 Gin、Echo 等），避免了额外的框架开销与依赖冲突，确保了程序的高运行效率与极简编译体积。
+1. **去依赖化后端 (Dependency-Free Backend)**：后端完全基于 Go 1.20+ 标准库的 `net/http` 包构建纯 RESTful API，不引入任何第三方 HTTP 路由框架（如 Gin、Echo 等），避免了额外的框架开销与依赖冲突，确保了程序的高运行效率与极简编译体积。
 2. **纯 Go 驱动嵌入式数据库 (Pure Go SQLite3)**：数据持久化层采用 `modernc.org/sqlite` 驱动。该驱动基于 C99-to-Go 转译技术，使 Go 在操作 SQLite3 数据库时完全不需要开启 CGO (C-Go Interoperability)。这彻底消除了 CGO 编译时的底层 GCC/Clang 依赖，使得系统可以在任何开发机上无缝跨平台交叉编译（例如在 macOS 下一键编译 Windows 原生静态二进制文件）。
 3. **零构建前端 (Zero-Build Frontend)**：前端界面直接基于 Vanilla JavaScript、原生 CSS Variables 与 HTML5 构建，排除了 Node.js、Webpack、Vite 或 npm 等复杂的编译打包流程。系统运行仅需提供静态排版文件，降低了系统运维和二次定制的门槛。
 
@@ -28,7 +35,7 @@
 +-----------------------------------------------------------------------+
 |                      业务逻辑层 (Service Layer)                        |
 |   CheckoutService   |   InventoryService   |   ReportService          |
-|   [预订单反向装载]    |   [防提货倒挂算法]   |   [零价同步匹配]          |
+|   [预订单反向装载]    |   [防提货倒挂算法]     |    [零价同步匹配]          |
 +-----------------------------------------------------------------------+
                                    | (依赖注入 / 接口解耦)
                                    v
@@ -39,7 +46,7 @@
                                    | (原生态 SQL / 事务 Tx)
                                    v
 +-----------------------------------------------------------------------+
-|                    底层基础设施层 (Infrastructure Layer)               |
+|                    底层基础设施层 (Infrastructure Layer)                |
 |   SQLite3 Database Engine    |    Windows RAW winspool.drv Printer    |
 +-----------------------------------------------------------------------+
 ```
@@ -146,20 +153,20 @@
 由于本系统消除了对外界运行环境与 C 语言编译器的依赖，您可以直接通过 Go 工具链执行跨平台部署与静态二进制生成。
 
 ### 5.1 本地编译与运行
-在准备好 Go 1.21 及以上开发环境后，进入项目根目录执行以下命令：
+在准备好 Go 1.20 及以上开发环境后，进入项目根目录执行以下命令：
 
 ```bash
 # 同步并验证 Go Modules 依赖 (主要为 modernc.org/sqlite 纯 Go 数据库驱动)
 go mod tidy
 
 # 编译当前操作系统的可执行静态二进制程序
-go build -o pos-app main.go
+go build -o modern-pos main.go
 
 # 启动收银台服务器
-./pos-app
+./modern-pos
 ```
 
-启动程序后，服务器会默认挂载监听 `0.0.0.0:8080` 端口。使用任意现代浏览器（Chrome、Edge、Safari 等）访问 `http://localhost:8080` 即可登入并操作收银系统。
+启动程序后，服务器会默认安全绑定本机网络接口监听 `127.0.0.1:8080`（防止生产环境误绑 `0.0.0.0` 暴露至外网）。使用任意现代浏览器访问 `http://127.0.0.1:8080` 即可登入并操作收银系统。对于生产环境部署，建议指定明确网卡 IP 并严格配合防火墙或安全组规则限制访问。
 
 ### 5.2 交叉编译与免命令行窗口部署 (Windows POS 原生支持)
 为了适应绝大多数实体门店采用的 Windows 操作台环境，您可以通过环境变量跨平台一键编译出无需控制台窗口的纯原生 Windows 应用程序：
@@ -169,20 +176,27 @@ go build -o pos-app main.go
 # -ldflags="-s -w -H windowsgui" 的作用：
 #   -s -w : 去除调试符号，大幅压缩编译生成的二进制 EXE 文件体积
 #   -H windowsgui : 隐藏 Windows 启动时的黑框命令提示符窗口，使程序静默在后台作为服务运行
-CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -H windowsgui" -o pos_app.exe main.go
+CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -H windowsgui" -o modern-pos.exe main.go
 ```
 
-将生成的 `pos_app.exe` 和 `static` 目录放置同一文件夹下，在店面电脑上双击即可直接运行，无需在目标主机上安装任何 Go 环境、Node 运行库或数据库软件。
+将生成的 `modern-pos.exe` 和 `static` 目录放置同一文件夹下，在店面电脑上双击即可直接运行，无需在目标主机上安装任何 Go 环境、Node 运行库或数据库软件。
 
-### 5.3 数据库存储与备份还原策略
+### 5.3 数据库高可靠性与备份还原策略
 系统运行时，会在工作目录下自动生成并操作 `pos_data.db` 文件作为嵌入式 SQLite3 物理存储介质：
-* **热备份机制**：系统内置 `/api/system/backup` 接口，提供无锁在线导出整库文件的能力。
-* **热恢复机制**：通过前端界面的“恢复数据”功能或直接覆盖 `pos_data.db`，可瞬间完成整个门店进销存数据、历史流水及客户档案的整库迁移与版本回滚。
+* **WAL 并发预写模式**：系统在初始化时显式开启 `PRAGMA journal_mode=WAL`（预写日志模式）与 `PRAGMA busy_timeout=5000`（5秒忙等待超时）。在高并发交易与批量报表查询同时发生时，彻底解决读写锁冲突，杜绝 `database is locked` 异常。
+* **定时热备份与完整性校验**：内置 `BackupService` 后台定时任务，默认每 6 小时自动执行一次底层原子热备份。备份使用 SQLite 零阻塞原子指令 `VACUUM INTO` 生成快照，并在生成后立即打开快照执行 `PRAGMA integrity_check` 深度完整性校验，确认无误后自动保存至 `./backups` 目录并清理超过 30 天的历史快照；如校验发现快照损坏，立刻安全销毁，确保存档文件 100% 可恢复。
+* **系统高危操作鉴权与行数审计**：对于 `/api/system/backup`、`/api/system/restore` 和 `/api/system/reset` 高危运维接口，强制应用 `RequireAdmin` 权限校验中间件（经由 `subtle.ConstantTimeCompare` 防时序攻击）；在订单扣货与退货底层 Repository SQL 执行中，对受影响行数 (`RowsAffected`) 进行严格验证，防止多用户并发下的库存超扣或提货量倒挂。
+
+### 5.4 稳定性保障、可观测性与 CI/CD 规范
+* **全量可观测性审计 (Logging Middleware)**：系统拦截并记录每一次 HTTP 调用的微秒级响应耗时与真实状态码；针对 `/api/checkout`、`/api/refund`、`/api/inventory/*`、`/api/system/*` 等关键收银与库管路径，自动输出专属 `[业务审计]` 日志。
+* **异常自愈与安全保护 (Panic Recovery & Server Timeouts)**：通过全局 `Recovery` 中间件拦截所有未处理的运行时异常（Panic）并保存堆栈追踪，在发生局部故障时向客户端返回安全友好的 500 提示，主程序进程不会崩溃，保障其他收银台继续营业；同时对底层 `http.Server` 严格配置 `ReadTimeout (15s)`、`WriteTimeout (30s)` 与 `IdleTimeout (60s)`，彻底防范慢速攻击与长连接句柄耗尽。
+* **优雅停机机制 (Graceful Shutdown)**：系统后台监听操作系统停机信号 (`SIGINT`/`SIGTERM`)。在收到停机指令后，首先优雅停止定时热备份任务，防止触发新写入；随后通过 `srv.Shutdown(ctx)` 为当前活跃的交易和下载预留 10 秒收尾履约时间；最后安全关闭 `sql.DB` 驱动，确保所有预写日志完全落盘。
+* **持续集成与自动交叉编译 (GitHub Actions CI/CD)**：项目配置了完整的 `.github/workflows/ci.yml` 自动化流水线。每次提交或 Pull Request 均自动启动环境执行代码规范检查、单元测试及并发竞态校验 (`go test -race ./...`)；通过自动化构建矩阵，每次发版能够同时针对 Linux (amd64)、Windows (amd64 GUI 版)、macOS (Intel amd64 与 Apple Silicon arm64) 编译原生可执行文件并作为 Release 归档。
 
 ---
 
 ## 6. 开源协议与致谢
 
-本软件及相关源代码架构遵循 MIT License 自由开源协议。我们鼓励开发者、集成商和从业者在商业或非商业经营活动中对本系统进行深度学习、定制开发、私有化部署以及二次分发。
+本软件及相关源代码架构遵循 MIT License 自由开源协议。我们鼓励开发者、集成商和从业者在商业或非商业经营活动中对本系统进行定制开发、私有化部署以及二次分发。
 
 在引用、借鉴本项目的底层软件架构、核心防呆转载算法或前端设计范式时，请在产品文档或致谢部分标注原作者致谢：**[Ju1ian SyntaxErr0r Zhang]**。感谢对本项目的系统功能完善、深度测试与商业逻辑架构设计推演。

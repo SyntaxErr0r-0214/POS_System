@@ -1,4 +1,4 @@
-module pos-demo
+module modern-pos
 
 go 1.20
 
