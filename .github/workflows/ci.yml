@@ -41,6 +41,8 @@ jobs:
     name: 跨平台多架构编译验证 (Cross-Platform Build Matrix)
     needs: test-and-lint
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     strategy:
       matrix:
         include:
@@ -89,3 +91,11 @@ jobs:
           name: modern-pos-binaries-${{ matrix.os }}-${{ matrix.arch }}
           path: dist/*
           retention-days: 7
+
+      - name: 发布构建产物至 GitHub Release (Upload to Release Assets)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
