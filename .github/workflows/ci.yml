@@ -72,7 +72,7 @@ jobs:
           CGO_ENABLED: 0
         run: |
           mkdir -p dist
-          go build -ldflags="-s -w" -o dist/${{ matrix.output }} ./...
+          go build -ldflags="-s -w" -o dist/${{ matrix.output }} .
 
       - name: 编译调试测试标签二进制执行文件 (Build Debug Binary)
         env:
@@ -80,7 +80,7 @@ jobs:
           GOARCH: ${{ matrix.arch }}
           CGO_ENABLED: 0
         run: |
-          go build -tags debug -ldflags="-s -w" -o dist/debug-${{ matrix.output }} ./...
+          go build -tags debug -ldflags="-s -w" -o dist/debug-${{ matrix.output }} .
 
       - name: 上传构建产物至 CI 归档 (Upload Artifacts)
         uses: actions/upload-artifact@v4

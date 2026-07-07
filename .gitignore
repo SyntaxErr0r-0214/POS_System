@@ -53,10 +53,12 @@ tmp_*
 .Spotlight-V100
 .Trashes
 
-# 5. IDE 与编辑器本地工程配置 (IDE & Editor Configurations)
-# 排除开发工具的个人配置，避免团队协同工作时产生工作区环境冲突
+# 5. IDE、编辑器与开发者环境工具配置 (IDE & Developer Tools)
+# 排除开发工具与运行时环境工具（如 mise / asdf）的个人配置，避免团队协同工作时产生环境冲突
 .idea/
 .vscode/
+mise.toml
+.mise.toml
 *.suo
 *.ntvs*
 *.njsproj
