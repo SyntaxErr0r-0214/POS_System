@@ -3,6 +3,7 @@ name: CI / CD Pipeline - 极简智能收银系统
 on:
   push:
     branches: [ "main", "master" ]
+    tags: [ "v*" ]
   pull_request:
     branches: [ "main", "master" ]
   workflow_dispatch:

@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"embed"
 	"flag"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -18,6 +20,23 @@ import (
 	"syscall"
 	"time"
 )
+
+//go:embed static/*
+var embeddedStatic embed.FS
+
+// getFileSystem 获取前端静态资源文件系统：优先检查磁盘 ./static 目录以支持二次定制修改，若不存在则降级使用二进制内置嵌入式资源
+func getFileSystem() http.FileSystem {
+	if _, err := os.Stat("./static"); err == nil {
+		log.Println("[系统启动] 检测到本地 ./static 目录，优先使用磁盘外部静态资源（支持二次定制）")
+		return http.Dir("./static")
+	}
+	log.Println("[系统启动] 未检测到外部 ./static 目录，自动启用二进制内置嵌入式静态资源")
+	fsys, err := fs.Sub(embeddedStatic, "static")
+	if err != nil {
+		log.Fatal("[系统异常] 提取内置静态资源失败:", err)
+	}
+	return http.FS(fsys)
+}
 
 func main() {
 	loc, err := time.LoadLocation("Asia/Shanghai")
@@ -55,7 +74,7 @@ func main() {
 	rHandler := &handler.ReportHandler{Service: reportSvc}
 	sysHandler := &handler.SystemHandler{DB: db, BackupSvc: backupSvc}
 
-	http.Handle("/", http.FileServer(http.Dir("./static")))
+	http.Handle("/", http.FileServer(getFileSystem()))
 
 	http.HandleFunc("/api/scan", pHandler.Scan)
 	http.HandleFunc("/api/checkout", oHandler.Checkout)
