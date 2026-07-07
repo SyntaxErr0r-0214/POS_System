@@ -829,15 +829,6 @@
           <polyline points="9 22 9 12 15 12 15 22"></polyline>
         </svg>
         万康生态食品团购超市
-        <span
-          style="
-            font-size: 12px;
-            background: red;
-            padding: 2px 5px;
-            border-radius: 4px;
-          "
-          >v2.1</span
-        >
       </div>
       <div class="nav-tabs">
         <div class="nav-item active" onclick="switchTab('cashier')">收银台</div>
@@ -1200,7 +1191,7 @@
             align-items: center;
           "
         >
-          👈 请选择一个订单
+          请选择一个订单
         </div>
       </div>
     </div>
@@ -1216,7 +1207,7 @@
           "
         >
           <h2 style="margin: 0; font-size: 24px; font-weight: 800">
-            📦 商品库存
+            商品库存
           </h2>
           <div style="display: flex; gap: 12px; align-items: center">
             <button
@@ -1537,7 +1528,7 @@
     <div class="modal-overlay" id="procurement-modal">
       <div class="modal" style="width: 900px">
         <h3>
-          🚚 采购入库单
+          采购入库单
           <span
             style="font-size: 14px; color: var(--text-sub); font-weight: 400"
             >(请勾选已买回的商品并完善价格)</span
@@ -2244,7 +2235,7 @@
 
         document.getElementById("section-unpicked").innerHTML =
           un.length > 0
-            ? `<div style="font-weight:800;margin:24px 0 12px 0;color:var(--primary);">📦 待提取</div>` +
+            ? `<div style="font-weight:800;margin:24px 0 12px 0;color:var(--primary);">待提取</div>` +
               un
                 .map((i) => renderItem(i, currentOrderTab === "Pending"))
                 .join("")
