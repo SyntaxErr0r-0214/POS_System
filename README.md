@@ -1,202 +1,214 @@
-# 极简智能收银台系统 (Modern POS System) - 技术架构与设计规范
+*Read this in other languages: [English](README.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md)
 
-[![WeChat](https://img.shields.io/badge/WeChat-Connect-07c160?logo=wechat&logoColor=white)](docs/images/IMG_1227.png)
+---
+
+<h1 align = "center">
+
+Modern POS System - Technical Architecture and Design Specifications
+
+[![WeChat](https://img.shields.io/badge/WeChat-Connect-07c160?logo=wechat&logoColor=white)](docs/images/WeChat.png)
+[![Telegram](https://img.shields.io/badge/Telegram-Connect-07c160?logo=telegram&logoColor=white)](docs/images/Telegram.png)
+[![WhatsApp](https://img.shields.io/badge/WhatsApp-Connect-07c160?logo=whatsapp&logoColor=white)](docs/images/WhatsApp.png)
+[![Line](https://img.shields.io/badge/Line-Connect-07c160?logo=line&logoColor=white)](docs/images/Line.png)
+
 ![Go Version](https://img.shields.io/badge/Go-1.20+-00ADD8?logo=go&logoColor=white)
 ![Database](https://img.shields.io/badge/Database-SQLite3%20(Pure%20Go)-003B57?logo=sqlite&logoColor=white)
 ![Frontend](https://img.shields.io/badge/Frontend-Vanilla%20JS%20%7C%20HTML5%20%7C%20CSS3-E34F26?logo=html5&logoColor=white)
 ![Architecture](https://img.shields.io/badge/Architecture-RESTful%20%7C%20Single%20Binary-4A154B)
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
 
-本系统是一款基于 Go 语言和 SQLite3 嵌入式数据库构建的轻量级、高性能、无依赖现代收银与进销存管理系统。系统放弃了传统的重型 Web 框架和复杂的前端构建工具链，采用经典的单体分层架构与纯粹的 DOM/RESTful API 交互模式，专注于零售与特产门店在称重计价、多维度预付款追踪、临时商品零价挂单以及订单防呆修改等复杂业务场景下的底层高可靠性与计算精确性。
+</div>
+
+This system is a lightweight, high-performance, and dependency-free modern point-of-sale (POS) and inventory management system built with Go and an embedded SQLite3 database. The system abandons traditional heavy Web frameworks and complex frontend build toolchains, adopting a classic monolithic layered architecture with a pure DOM/RESTful API interaction model. It focuses on underlying high reliability and computational accuracy in complex business scenarios for retail and specialty stores, such as weight-based pricing, multi-dimensional prepayment tracking, zero-price pending orders for temporary products, and fail-safe order modifications.
 
 ---
 
-## 1. 系统总体架构与设计哲学
+## 1. System Overall Architecture and Design Philosophy
 
-在软件工程设计上，本系统奉行“极简主义”与“高内聚、低耦合”的架构原则，追求极致的运行效率与零维护心智负担：
+In terms of software engineering design, this system adheres to the architectural principles of "minimalism" and "high cohesion, low coupling," pursuing ultimate operational efficiency and zero maintenance cognitive load:
 
-1. **去依赖化后端 (Dependency-Free Backend)**：后端完全基于 Go 1.20+ 标准库的 `net/http` 包构建纯 RESTful API，不引入任何第三方 HTTP 路由框架（如 Gin、Echo 等），避免了额外的框架开销与依赖冲突，确保了程序的高运行效率与极简编译体积。
-2. **纯 Go 驱动嵌入式数据库 (Pure Go SQLite3)**：数据持久化层采用 `modernc.org/sqlite` 驱动。该驱动基于 C99-to-Go 转译技术，使 Go 在操作 SQLite3 数据库时完全不需要开启 CGO (C-Go Interoperability)。这彻底消除了 CGO 编译时的底层 GCC/Clang 依赖，使得系统可以在任何开发机上无缝跨平台交叉编译（例如在 macOS 下一键编译 Windows 原生静态二进制文件）。
-3. **零构建前端 (Zero-Build Frontend)**：前端界面直接基于 Vanilla JavaScript、原生 CSS Variables 与 HTML5 构建，排除了 Node.js、Webpack、Vite 或 npm 等复杂的编译打包流程。系统运行仅需提供静态排版文件，降低了系统运维和二次定制的门槛。
+1. **Dependency-Free Backend**: The backend is built entirely on the `net/http` package of the Go 1.20+ standard library, functioning as a pure RESTful API without introducing any third-party HTTP routing frameworks (such as Gin, Echo, etc.). This avoids additional framework overhead and dependency conflicts, ensuring high operational efficiency and an extremely minimal compiled binary size.
+2. **Pure Go SQLite3 Database**: The data persistence layer uses the `modernc.org/sqlite` driver. This driver is based on C99-to-Go transpilation technology, allowing Go to operate the SQLite3 database entirely without enabling CGO (C-Go Interoperability). This completely eliminates the underlying GCC/Clang dependencies during CGO compilation, enabling the system to be seamlessly cross-compiled across platforms on any development machine (e.g., one-click compiling a native static Windows binary on macOS).
+3. **Zero-Build Frontend**: The frontend interface is built directly with Vanilla JavaScript, native CSS Variables, and HTML5, eliminating complex compilation and bundling processes involving Node.js, Webpack, Vite, or npm. The system only requires static layout files to run, lowering the threshold for system operation, maintenance, and secondary customization.
 
 ---
 
-## 2. 软件分层架构与代码组织
+## 2. Software Layered Architecture and Code Organization
 
-系统代码严格遵循经典的分层架构 (Layered Architecture)，从软件工程角度实现职责分离 (Separation of Concerns)，确保了核心业务逻辑层不受外部接口协议和存储介质变化的影响：
+The system code strictly follows a classic Layered Architecture, achieving Separation of Concerns from a software engineering perspective. This ensures that the core business logic layer remains unaffected by changes in external interface protocols and storage media:
 
 ```
 +-----------------------------------------------------------------------+
-|                       HTTP 接口层 (Handler Layer)                      |
+|                       HTTP Handler Layer                              |
 |   OrderHandler   |   ProductHandler   |   ReportHandler  |   System   |
 +-----------------------------------------------------------------------+
-                                   | (接口调用 / DTO 传递)
+                                   | (Interface Calls / DTO Passing)
                                    v
 +-----------------------------------------------------------------------+
-|                      业务逻辑层 (Service Layer)                        |
+|                         Service Layer                                 |
 |   CheckoutService   |   InventoryService   |   ReportService          |
-|   [预订单反向装载]    |   [防提货倒挂算法]     |    [零价同步匹配]          |
+|  [Reverse Loading]  |  [Fail-Safe Pickup]  |   [Zero-Price Sync]      |
 +-----------------------------------------------------------------------+
-                                   | (依赖注入 / 接口解耦)
+                                   | (Dependency Injection / Decoupling)
                                    v
 +-----------------------------------------------------------------------+
-|                     数据访问层 (Repository Layer)                      |
+|                        Repository Layer                               |
 |   OrderRepo      |   ProductRepo      |   ReportRepo                  |
 +-----------------------------------------------------------------------+
-                                   | (原生态 SQL / 事务 Tx)
+                                   | (Native SQL / Transactions Tx)
                                    v
 +-----------------------------------------------------------------------+
-|                    底层基础设施层 (Infrastructure Layer)                |
+|                      Infrastructure Layer                             |
 |   SQLite3 Database Engine    |    Windows RAW winspool.drv Printer    |
 +-----------------------------------------------------------------------+
 ```
 
-### 2.1 接口层 (Handler Layer)
-位于 `internal/handler` 目录下，负责 HTTP 请求的接收、参数解析、数据校验以及 JSON 响应的格式化。各 Handler 不直接操作数据库，而是通过结构体成员引用依赖的业务 Logic/Service 接口。
+### 2.1 Handler Layer
+Located in the `internal/handler` directory, this layer is responsible for receiving HTTP requests, parsing parameters, validating data, and formatting JSON responses. The Handlers do not interact with the database directly; instead, they reference the dependent business Logic/Service interfaces through struct members.
 
-### 2.2 业务逻辑层 (Service Layer)
-位于 `internal/service` 目录下，承载了系统的核心商业逻辑与安全校验。
-* **依赖注入 (Dependency Injection)**：在系统启动入口 `main.go` 中，向各 Service 装配具体实现的 Repository 实例。这种松耦合的设计使得系统在未来做单元测试（Mock）或切换存储引擎时，无需修改业务逻辑代码。
-* **并发与异步解耦 (Concurrency & Async Decoupling)**：对于硬件 IO 操作（如热敏打印机小票打印），Service 层采用 Go 协程 (`go printAsync`) 进行异步解耦处理。即使用户底层硬件处于等待或响应缓慢状态，主处理线程也能够做到全异步非阻塞，立即返回 HTTP 状态结果并完成数据库事务提交，保障前端收银台的高响应度。
+### 2.2 Service Layer
+Located in the `internal/service` directory, this layer houses the system's core commercial logic and security validations.
+* **Dependency Injection**: In the system startup entry point `main.go`, specific Repository implementation instances are assembled and injected into each Service. This loosely coupled design ensures that the system can undergo unit testing (Mocking) or switch storage engines in the future without modifying the business logic code.
+* **Concurrency & Async Decoupling**: For hardware IO operations (such as thermal receipt printing), the Service layer utilizes Go Goroutines (`go printAsync`) for asynchronous decoupling. Even if the user's underlying hardware is waiting or responding slowly, the main processing thread remains fully asynchronous and non-blocking, immediately returning the HTTP status result and completing the database transaction commit to ensure high responsiveness at the frontend POS.
 
-### 2.3 数据访问层 (Repository Layer)
-位于 `internal/repository` 目录下，负责所有 SQL 语句的构造、执行与结果集映射。该层对上层屏蔽了底层 SQLite 语句的复杂性，负责执行联表深度查询、分页、多字段关键词检索以及复杂聚合统计。
+### 2.3 Repository Layer
+Located in the `internal/repository` directory, this layer is responsible for constructing, executing, and mapping result sets for all SQL statements. It shields the upper layers from the complexity of underlying SQLite statements, handling deep join queries, pagination, multi-field keyword retrieval, and complex aggregate statistics.
 
-### 2.4 底层硬件与操作系统适配层 (Infrastructure Layer)
-位于 `pkg/printer` 目录下，负责操作系统外设和底层资源调度。
-* **打印驱动抽象接口**：声明了全局标准接口 `Printer` 及其核心方法 `PrintTicket(content string) error`。
-* **Windows API 深度封装**：对于 Windows 环境下常见的 POS-58 热敏打印机，系统没有调用系统顶层的重型驱动图形化绘制，而是通过 Go `syscall` 和 `unsafe.Pointer` 直接调用 Windows 核心动态链接库 `winspool.drv` 中的 `OpenPrinterW`、`StartDocPrinterW`、`WritePrinter` 等核心 API。该模块在将 Go 内部的标准 UTF-8 字符串转换为打印机原生支持的 GBK 编码后，直接以 RAW 模式向打印机端口发送原始字节流与 ESC/POS 硬件切纸指令，实现了低延迟和硬件兼容性。
+### 2.4 Infrastructure Layer
+Located in the `pkg/printer` directory, this layer is responsible for operating system peripherals and underlying resource scheduling.
+* **Printer Driver Abstraction Interface**: Declares the global standard interface `Printer` and its core method `PrintTicket(content string) error`.
+* **Deep Encapsulation of Windows APIs**: For POS-58 thermal printers common in Windows environments, the system does not invoke the heavy top-level system graphical drawing drivers. Instead, it directly calls core APIs like `OpenPrinterW`, `StartDocPrinterW`, and `WritePrinter` in the Windows core dynamic link library `winspool.drv` using Go `syscall` and `unsafe.Pointer`. After converting Go's internal standard UTF-8 strings to the GBK encoding natively supported by the printer, this module sends raw byte streams and ESC/POS hardware paper-cutting commands directly to the printer port in RAW mode, achieving low latency and maximum hardware compatibility.
 
 ---
 
-## 3. 核心算法与进阶业务机制
+## 3. Core Algorithms and Advanced Business Mechanisms
 
-系统为了解决实际实体门面经营中的数据一致性、防呆除错与价格实时响应等难题，实现了多项进阶核心算法：
+To resolve practical physical store management challenges such as data consistency, fail-safe error prevention, and real-time price response, the system implements several advanced core algorithms:
 
-### 3.1 预订单“反向装载”与“防呆校验”算法 (Reverse Loading & Safe Modification Algorithm)
-在POS业务中，已经挂单（Pending）的预订单，用户可能在付款前多次对商品数量、单价或定金进行调整。为此系统设计了“防倒挂校验的反向装载”算法：
+### 3.1 Reverse Loading & Safe Modification Algorithm
+In POS operations, a user may repeatedly adjust product quantities, unit prices, or deposits for pending orders before final payment. Therefore, the system incorporates a "Fail-Safe Reverse Loading" algorithm:
 
-1. **内存快照与反向映射**：当用户请求修改某历史预订单时，系统从数据库中提取该订单在 `order_items` 表中的所有行，将其还原并格式化为内存中的标准购物车对象 (`cart`)。系统同时将当前全局状态标注为该订单的“编辑锁定态”。
-2. **安全库存双向补偿机制**：
-   * 在执行改单提交时，系统实时比对新购物车中各商品的数量与原订单中对应商品的数量差异 (`delta = new_qty - old_qty`)。
-   * 若 `delta > 0`（追加订购），系统向上层调用库存排他排查，验证主库存是否充裕。若充裕，则在主表中再扣减 `delta` 数量的库存；若不足，立刻拦截事务并抛出提示。
-   * 若 `delta < 0`（减少订购），系统自动将剩余差异差额释放并补回主商品库的真实库存中。
-3. **防提货数量倒挂算法 (Pick-up Safety Check)**：在改单与部分退款逻辑中，系统对每一行商品严格执行公式校验：
+1. **Memory Snapshot and Reverse Mapping**: When a user requests to modify a historical pending order, the system extracts all rows belonging to that order from the `order_items` table in the database, reconstructing and formatting them into a standard shopping cart object (`cart`) in memory. The system simultaneously marks the global state as "Edit Locked" for this order.
+2. **Bidirectional Safety Inventory Compensation Mechanism**:
+   * Upon submitting the modified order, the system calculates the difference in quantity for each product between the new cart and the original order (`delta = new_qty - old_qty`) in real-time.
+   * If `delta > 0` (additional order), the system requests an exclusive inventory check to verify if the main stock is sufficient. If sufficient, it deducts the `delta` quantity from the main table; if insufficient, it immediately intercepts the transaction and throws a prompt.
+   * If `delta < 0` (reduced order), the system automatically releases the difference and restores the true inventory in the main product database.
+3. **Fail-Safe Pick-up Quantity Algorithm**: In modification and partial refund logic, the system strictly applies a formula validation to every product row:
    $$\text{ValidQty} \ge (\text{QtyPicked} - \text{QtyRefunded})$$
-   一旦收银员试图修改或退除的数量导致订购量低于客户此前已经提走（且尚未退款）的数量，底层业务服务将立即触发安全异常。此校验从根本上杜绝了“货物已被取走，但账单被删减或退款”的资金倒挂风险。
+   If a cashier attempts to modify or refund a quantity that causes the ordered amount to drop below what the customer has already picked up (and not yet refunded), the underlying business service immediately triggers a security exception. This validation fundamentally eliminates the financial risk of "goods picked up, but bill deleted or refunded."
 
-### 3.2 临时商品“零价挂单”与“价格自动同步”算法 (Temporary Product Auto-Sync)
-针对生鲜或到货新批次尚未完成后台入库定价，但前台急需销售开单的场景，系统设计了价格延迟决断与自动补偿映射机制：
+### 3.2 Temporary Product Auto-Sync & Zero-Price Pricing Algorithm
+For scenarios where fresh produce or new arrival batches have not yet been priced and entered into the backend inventory, but the frontend urgently needs to create a sales order, the system features a deferred pricing and automatic compensation mapping mechanism:
 
-1. **零价占位与内存标记**：允许前台在购物车中临时录入尚未定价的商品（进价与现价默认初始化为 0），生成挂单并锁定对应库存与客户属性。
-2. **入库触发机制**：当后台管理人员在进货入库模块 (`Procure`) 对该临时商品补充进价和现价并保存后，系统的更新事务在完成持久化后，主动派发库存与价格刷新指令。
-3. **自动同步与联动补全算法**：前端接收到更新信号后，执行内存购物车与挂单池匹配遍历。对于每一个处于预订挂单状态或当前购物车中商品 ID 匹配、且历史价格为 0、最新价格大于 0 的商品，系统立即在内存中自动补全最新单价与进价，并调用 `calcMargin()` 和总计重新计算渲染。整个同步全自动化完成，彻底清除了收银台在繁忙时手动翻找历史订单改价的繁琐工序。
+1. **Zero-Price Placeholder and Memory Marking**: Allows the frontend to temporarily enter unpriced products into the shopping cart (cost and current price default to 0), generating a pending order and locking the corresponding inventory and customer attributes.
+2. **Stock-In Trigger Mechanism**: When backend management supplements the cost and current price for this temporary product in the procurement module (`Procure`) and saves it, the system's update transaction actively dispatches an inventory and price refresh command after persistence is complete.
+3. **Auto-Sync and Linkage Completion Algorithm**: Upon receiving the update signal, the frontend executes a matching traversal between the memory shopping cart and the pending order pool. For every product matching the ID, currently in a pending state or in the active cart, with a historical price of 0 and a new price greater than 0, the system instantly auto-completes the latest unit price and cost price in memory, and triggers `calcMargin()` and total recalculation rendering. This entire synchronization is fully automated, eliminating the tedious process of manually digging through historical orders to adjust prices at a busy checkout counter.
 
-### 3.3 颗粒度到单品的付款与提货追踪机制 (Item-Level Tracking)
-不同于普通收银系统仅对“整单”进行“已付/未付”的二元判定，本系统在数据结构层面引入了颗粒度细化到**每个独立 SKU 商品**的四重计数跟踪：
-* **`qty_ordered`**：初始订购总数
-* **`qty_picked`**：已提货核销数量
-* **`qty_paid`**：已结算预付数量
-* **`qty_refunded`**：已完成退货数量
+### 3.3 Item-Level Tracking and Payment Mechanism
+Unlike standard POS systems that only make a binary "Paid/Unpaid" determination for the "entire order," this system introduces a four-tiered tracking count at the data structure level **for each independent SKU product**:
+* **`qty_ordered`**: Initial total ordered quantity
+* **`qty_picked`**: Quantity picked up/verified
+* **`qty_paid`**: Quantity prepaid/settled
+* **`qty_refunded`**: Quantity returned/refunded
 
-**提货与付款防漏算法**：当客户对预订单进行分批提货操作 (`Pickup`) 时，若提货清单中的某些商品在早先挂单时并未勾选预付标记，系统在执行 `qty_picked += delta` 更新的同时，自动将此商品的 `qty_paid` 同步更新至不小于提货数量的值。该设计在逻辑底层保证了任何发生物理提货的商品，在其属性上必然被标记为“已结算”，防范了业务流程中可能出现的漏收款隐患。
+**Pick-up and Payment Leak-Proof Algorithm**: When a customer performs batch pick-ups (`Pickup`) against a pending order, if certain products in the pick-up list were not marked as prepaid during the initial ordering, the system, while executing the `qty_picked += delta` update, automatically syncs the `qty_paid` for that product to a value no less than the pick-up quantity. This design logically ensures at the base level that any product physically picked up is necessarily marked as "settled," preventing the risk of uncollected payments in the business workflow.
 
-### 3.4 系统级原子化数据清空与重置算法 (Atomic System Reset)
-为适应系统在上线部署调试完毕后切换至商业正式营业，或旧版本整体重置的业务需求，系统实现了原子化重置接口 (`/api/system/reset`)：
-1. **排他事务开启**：执行 `db.BeginTx` 获取独占锁，防止在清空过程中有外来并发写入。
-2. **外键逆向清除**：严格按照关系型数据库的外键约束顺序，依次执行：
+### 3.4 Atomic System Reset Algorithm
+To accommodate business needs for switching to formal commercial operation after deployment and debugging, or for complete resets of legacy versions, the system implements an atomic reset API (`/api/system/reset`):
+1. **Exclusive Transaction Initiation**: Executes `db.BeginTx` to acquire an exclusive lock, preventing external concurrent writes during the clearing process.
+2. **Reverse Foreign Key Clearance**: Strictly following relational database foreign key constraint orders, it sequentially executes:
    * `DELETE FROM order_items;`
    * `DELETE FROM orders;`
    * `DELETE FROM products;`
-3. **自增主键序列归零**：系统针对 SQLite 底层系统表执行 `DELETE FROM sqlite_sequence WHERE name IN ('products', 'orders', 'order_items');`。这保证了重置后，新的商品编号与销售单号准确无误地自数字 `1` 顺序递增。
-4. **物理空间回收**：事务成功提交后，底层数据库自动执行 `VACUUM;` 指令。该指令重新整理 SQLite 底层的页结构并释放已经被删除记录占用的物理磁盘扇区，保持数据库文件体积小巧与查询高效。
+3. **Auto-Increment Primary Key Sequence Reset**: The system executes `DELETE FROM sqlite_sequence WHERE name IN ('products', 'orders', 'order_items');` against underlying SQLite system tables. This ensures that after a reset, new product IDs and sales order numbers accurately auto-increment sequentially starting from `1`.
+4. **Physical Space Reclamation**: After a successful transaction commit, the underlying database automatically executes the `VACUUM;` command. This rebuilds the underlying SQLite page structure and releases physical disk sectors occupied by deleted records, keeping the database file size small and queries highly efficient.
 
 ---
 
-## 4. 数据库设计与实体关系模型 (ER Model)
+## 4. Database Design and ER Model
 
-系统底层核心持久化结构以三张主体表为支撑，支持完备的索引与关联计算：
+The system's core persistence structure is supported by three main tables, allowing for comprehensive indexing and relational computation:
 
-### 4.1 商品库存表 (`products`)
-* **`id`** (INTEGER PRIMARY KEY AUTOINCREMENT)：商品内部流水自增 ID。
-* **`barcode`** (TEXT UNIQUE)：商品条形码/电子秤扫码标记，在数据库层面创建唯一索引，加速扫描检索。
-* **`name`** (TEXT NOT NULL)：商品标准名称。
-* **`category`** (TEXT NOT NULL)：商品所属品类，支持批量修改聚合。
-* **`cost_price`** (REAL NOT NULL)：商品进货成本价，用于核算实时毛利率与营收净利。
-* **`price`** (REAL NOT NULL)：商品前台零售售价。
-* **`stock`** (INTEGER NOT NULL)：当前可用物理库存（支持根据订单自动上下浮动与预扣除）。
-* **`unit`** (TEXT NOT NULL)：商品计量单位（如：个、斤、箱、克）。
+### 4.1 Product Inventory Table (`products`)
+* **`id`** (INTEGER PRIMARY KEY AUTOINCREMENT): Internal sequential auto-increment ID.
+* **`barcode`** (TEXT UNIQUE): Barcode / electronic scale scan marker, creating a unique index at the database level to accelerate scan retrieval.
+* **`name`** (TEXT NOT NULL): Standard product name.
+* **`category`** (TEXT NOT NULL): Product category, supporting batch modification and aggregation.
+* **`cost_price`** (REAL NOT NULL): Product cost price, used to calculate real-time gross margin and net revenue.
+* **`price`** (REAL NOT NULL): Frontend retail price.
+* **`stock`** (INTEGER NOT NULL): Currently available physical inventory (supports automatic floating and pre-deduction based on orders).
+* **`unit`** (TEXT NOT NULL): Unit of measurement (e.g., piece, kg, box, gram).
 
-### 4.2 订单主表 (`orders`)
-* **`id`** (INTEGER PRIMARY KEY AUTOINCREMENT)：系统订单全局唯一流水编号。
-* **`daily_seq`** (INTEGER NOT NULL)：每日排队排号流水单号。系统按天为周期归零并自动重新自增运算，提供符合实际门店场景的简短排号。
-* **`customer_name`** (TEXT)：预订客户姓名。
-* **`phone`** (TEXT)：预订客户联系电话，支持前台基于电话号码前缀的快速模糊检索。
-* **`total_amount`** (REAL NOT NULL)：该订单订购商品应收总额。
-* **`paid_amount`** (REAL NOT NULL)：该订单实际已预付/已结算金额。
-* **`status`** (TEXT NOT NULL)：状态枚举：`Pending` (预订挂单)、`Completed` (实时结算完成)、`Refunded` (已全单退款)、`Partial` (部分退货/发生部分退款)。
-* **`created_at`** / **`updated_at`** (DATETIME)：事务创建时间戳与最后修改时间戳。
+### 4.2 Order Master Table (`orders`)
+* **`id`** (INTEGER PRIMARY KEY AUTOINCREMENT): System global unique sequential order ID.
+* **`daily_seq`** (INTEGER NOT NULL): Daily queue sequence number. The system resets and auto-increments this daily, providing short queue numbers suitable for real-world store scenarios.
+* **`customer_name`** (TEXT): Booking customer's name.
+* **`phone`** (TEXT): Booking customer's phone number, supporting fast fuzzy retrieval on the frontend based on phone number prefixes.
+* **`total_amount`** (REAL NOT NULL): Total receivable amount for the products ordered.
+* **`paid_amount`** (REAL NOT NULL): Actual prepaid/settled amount for this order.
+* **`status`** (TEXT NOT NULL): Status enumeration: `Pending`, `Completed` (real-time settlement finished), `Refunded` (full order refunded), `Partial` (partial return/refund occurred).
+* **`created_at`** / **`updated_at`** (DATETIME): Transaction creation and last modification timestamps.
 
-### 4.3 订单商品明细表 (`order_items`)
-作为 `orders` 与 `products` 之间的多对多映射载体，同时承担了保存历史瞬间价格与快照追踪的重任：
-* **`id`** (INTEGER PRIMARY KEY AUTOINCREMENT)：明细行 ID。
-* **`order_id`** (INTEGER NOT NULL, FOREIGN KEY -> orders.id)：关联主表 ID。
-* **`product_id`** (INTEGER NOT NULL, FOREIGN KEY -> products.id)：关联商品 ID。
-* **`product_name`** (TEXT NOT NULL)：订购快照名称（避免后续商品改名影响历史小票）。
-* **`price`** (REAL NOT NULL) / **`cost_price`** (REAL NOT NULL)：下单瞬间的零售价与进货价快照。
-* **`qty_ordered`** / **`qty_picked`** / **`qty_paid`** / **`qty_refunded`** (REAL NOT NULL)：数量状态流转四元组。
+### 4.3 Order Item Details Table (`order_items`)
+Acts as the many-to-many mapping carrier between `orders` and `products`, while also taking on the crucial role of preserving historical instantaneous prices and snapshot tracking:
+* **`id`** (INTEGER PRIMARY KEY AUTOINCREMENT): Detail row ID.
+* **`order_id`** (INTEGER NOT NULL, FOREIGN KEY -> orders.id): Associated master table ID.
+* **`product_id`** (INTEGER NOT NULL, FOREIGN KEY -> products.id): Associated product ID.
+* **`product_name`** (TEXT NOT NULL): Order snapshot name (prevents future product name changes from affecting historical receipts).
+* **`price`** (REAL NOT NULL) / **`cost_price`** (REAL NOT NULL): Retail and cost price snapshots at the exact moment of order placement.
+* **`qty_ordered`** / **`qty_picked`** / **`qty_paid`** / **`qty_refunded`** (REAL NOT NULL): The four-tuple defining the quantity status flow.
 
 ---
 
-## 5. 编译、跨平台构建与部署规范
+## 5. Compilation, Cross-Platform Build, and Deployment Specifications
 
-由于本系统消除了对外界运行环境与 C 语言编译器的依赖，您可以直接通过 Go 工具链执行跨平台部署与静态二进制生成。
+Because this system eliminates dependencies on external runtime environments and C language compilers, you can execute cross-platform deployments and static binary generation directly via the Go toolchain.
 
-### 5.1 本地编译与运行
-在准备好 Go 1.20 及以上开发环境后，进入项目根目录执行以下命令：
+### 5.1 Local Compilation and Execution
+After preparing a Go 1.20+ development environment, navigate to the project root directory and run the following commands:
 
 ```bash
-# 同步并验证 Go Modules 依赖 (主要为 modernc.org/sqlite 纯 Go 数据库驱动)
+# Sync and verify Go Modules dependencies (primarily the modernc.org/sqlite pure Go driver)
 go mod tidy
 
-# 编译当前操作系统的可执行静态二进制程序
+# Compile an executable static binary for the current OS
 go build -o modern-pos main.go
 
-# 启动收银台服务器
+# Start the POS server
 ./modern-pos
 ```
 
-启动程序后，服务器会默认安全绑定本机网络接口监听 `127.0.0.1:8080`（防止生产环境误绑 `0.0.0.0` 暴露至外网）。使用任意现代浏览器访问 `http://127.0.0.1:8080` 即可登入并操作收银系统。对于生产环境部署，建议指定明确网卡 IP 并严格配合防火墙或安全组规则限制访问。
+Once started, the server safely binds to the local network interface by default, listening on `127.0.0.1:8080` (preventing accidental exposure to the public internet by binding to `0.0.0.0` in a production environment). Use any modern browser to visit `http://127.0.0.1:8080` to log in and operate the POS system. For production deployments, it is recommended to specify the exact network adapter IP and strictly restrict access using firewalls or security group rules.
 
-### 5.2 交叉编译与免命令行窗口部署 (Windows POS 原生支持)
-为了适应绝大多数实体门店采用的 Windows 操作台环境，您可以通过环境变量跨平台一键编译出无需控制台窗口的纯原生 Windows 应用程序：
+### 5.2 Cross-Compilation and GUI-less Deployment (Windows POS Native Support)
+To accommodate the Windows workstation environments used in the vast majority of physical stores, you can use environment variables to compile a pure native Windows application without a console window in a single click:
 
 ```bash
-# 在 Linux / macOS 下交叉编译 Windows X86-64 架构程序
-# -ldflags="-s -w -H windowsgui" 的作用：
-#   -s -w : 去除调试符号，大幅压缩编译生成的二进制 EXE 文件体积
-#   -H windowsgui : 隐藏 Windows 启动时的黑框命令提示符窗口，使程序静默在后台作为服务运行
+# Cross-compile a Windows X86-64 architecture executable from Linux / macOS
+# The purpose of -ldflags="-s -w -H windowsgui":
+#   -s -w : Strips debugging symbols, significantly compressing the generated EXE file size
+#   -H windowsgui : Hides the black command prompt window upon Windows startup, letting the program run silently in the background as a service
 CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -H windowsgui" -o modern-pos.exe main.go
 ```
 
-将生成的 `modern-pos.exe` 和 `static` 目录放置同一文件夹下，在店面电脑上双击即可直接运行，无需在目标主机上安装任何 Go 环境、Node 运行库或数据库软件。
+Place the generated `modern-pos.exe` and the `static` directory in the same folder. Double-click to run it directly on the store computer without installing any Go environment, Node runtime libraries, or database software on the target machine.
 
-### 5.3 数据库高可靠性与备份还原策略
-系统运行时，会在工作目录下自动生成并操作 `pos_data.db` 文件作为嵌入式 SQLite3 物理存储介质：
-* **WAL 并发预写模式**：系统在初始化时显式开启 `PRAGMA journal_mode=WAL`（预写日志模式）与 `PRAGMA busy_timeout=5000`（5秒忙等待超时）。在高并发交易与批量报表查询同时发生时，彻底解决读写锁冲突，杜绝 `database is locked` 异常。
-* **定时热备份与完整性校验**：内置 `BackupService` 后台定时任务，默认每 6 小时自动执行一次底层原子热备份。备份使用 SQLite 零阻塞原子指令 `VACUUM INTO` 生成快照，并在生成后立即打开快照执行 `PRAGMA integrity_check` 深度完整性校验，确认无误后自动保存至 `./backups` 目录并清理超过 30 天的历史快照；如校验发现快照损坏，立刻安全销毁，确保存档文件 100% 可恢复。
-* **系统高危操作鉴权与行数审计**：对于 `/api/system/backup`、`/api/system/restore` 和 `/api/system/reset` 高危运维接口，强制应用 `RequireAdmin` 权限校验中间件（经由 `subtle.ConstantTimeCompare` 防时序攻击）；在订单扣货与退货底层 Repository SQL 执行中，对受影响行数 (`RowsAffected`) 进行严格验证，防止多用户并发下的库存超扣或提货量倒挂。
+### 5.3 Database High Reliability and Backup/Restore Strategy
+During runtime, the system automatically creates and operates the `pos_data.db` file in the working directory as the embedded SQLite3 physical storage medium:
+* **WAL Concurrency Mode**: Upon initialization, the system explicitly enables `PRAGMA journal_mode=WAL` (Write-Ahead Logging) and `PRAGMA busy_timeout=5000` (5-second busy wait timeout). This completely resolves read/write lock conflicts and eliminates `database is locked` exceptions when high-concurrency transactions and batch report queries occur simultaneously.
+* **Scheduled Hot Backups and Integrity Checks**: Features a built-in `BackupService` background cron task that defaults to an atomic hot backup every 6 hours. The backup utilizes the SQLite zero-blocking atomic command `VACUUM INTO` to generate a snapshot. Immediately after generation, it opens the snapshot to execute a deep `PRAGMA integrity_check`. Once verified, it is automatically saved to the `./backups` directory, and historical snapshots older than 30 days are cleaned up. If corruption is found during validation, the snapshot is safely destroyed immediately, ensuring archive files are 100% restorable.
+* **High-Risk Operation Authentication and Row Auditing**: High-risk operational APIs like `/api/system/backup`, `/api/system/restore`, and `/api/system/reset` strictly apply a `RequireAdmin` permission validation middleware (via `subtle.ConstantTimeCompare` to prevent timing attacks). During the execution of underlying Repository SQL for order deductions and refunds, the number of affected rows (`RowsAffected`) is strictly verified to prevent inventory over-deduction or pick-up quantity inversion under high multi-user concurrency.
 
-### 5.4 稳定性保障、可观测性与 CI/CD 规范
-* **全量可观测性审计 (Logging Middleware)**：系统拦截并记录每一次 HTTP 调用的微秒级响应耗时与真实状态码；针对 `/api/checkout`、`/api/refund`、`/api/inventory/*`、`/api/system/*` 等关键收银与库管路径，自动输出专属 `[业务审计]` 日志。
-* **异常自愈与安全保护 (Panic Recovery & Server Timeouts)**：通过全局 `Recovery` 中间件拦截所有未处理的运行时异常（Panic）并保存堆栈追踪，在发生局部故障时向客户端返回安全友好的 500 提示，主程序进程不会崩溃，保障其他收银台继续营业；同时对底层 `http.Server` 严格配置 `ReadTimeout (15s)`、`WriteTimeout (30s)` 与 `IdleTimeout (60s)`，彻底防范慢速攻击与长连接句柄耗尽。
-* **优雅停机机制 (Graceful Shutdown)**：系统后台监听操作系统停机信号 (`SIGINT`/`SIGTERM`)。在收到停机指令后，首先优雅停止定时热备份任务，防止触发新写入；随后通过 `srv.Shutdown(ctx)` 为当前活跃的交易和下载预留 10 秒收尾履约时间；最后安全关闭 `sql.DB` 驱动，确保所有预写日志完全落盘。
-* **持续集成与自动交叉编译 (GitHub Actions CI/CD)**：项目配置了完整的 `.github/workflows/ci.yml` 自动化流水线。每次提交或 Pull Request 均自动启动环境执行代码规范检查、单元测试及并发竞态校验 (`go test -race ./...`)；通过自动化构建矩阵，每次发版能够同时针对 Linux (amd64)、Windows (amd64 GUI 版)、macOS (Intel amd64 与 Apple Silicon arm64) 编译原生可执行文件并作为 Release 归档。
+### 5.4 Stability Assurance, Observability, and CI/CD Specifications
+* **Comprehensive Observability Auditing (Logging Middleware)**: The system intercepts and logs the microsecond-level response time and actual status code of every HTTP call. It automatically outputs exclusive `[Business Audit]` logs for critical checkout and inventory paths such as `/api/checkout`, `/api/refund`, `/api/inventory/*`, and `/api/system/*`.
+* **Self-Healing and Security Protection (Panic Recovery & Server Timeouts)**: A global `Recovery` middleware intercepts all unhandled runtime exceptions (Panics) and saves stack traces. In the event of a localized failure, it returns a safe, user-friendly 500 error to the client while the main application process avoids crashing, ensuring other POS terminals continue operating. The underlying `http.Server` is strictly configured with `ReadTimeout (15s)`, `WriteTimeout (30s)`, and `IdleTimeout (60s)` to completely safeguard against slowloris attacks and connection handle exhaustion.
+* **Graceful Shutdown**: The system listens for OS shutdown signals (`SIGINT`/`SIGTERM`) in the background. Upon receiving a shutdown command, it first gracefully stops scheduled hot backup tasks to prevent triggering new writes; then it grants a 10-second wrap-up window via `srv.Shutdown(ctx)` for currently active transactions and downloads; finally, it safely closes the `sql.DB` driver, ensuring all write-ahead logs are fully flushed to disk.
+* **Continuous Integration and Automated Cross-Compilation (GitHub Actions CI/CD)**: The project is configured with a complete `.github/workflows/ci.yml` automated pipeline. Every commit or Pull Request automatically spins up environments to run code linting, unit tests, and concurrency race checks (`go test -race ./...`). Through an automated build matrix, every release can simultaneously compile native executable files for Linux (amd64), Windows (amd64 GUI version), and macOS (Intel amd64 and Apple Silicon arm64) to be archived as Release assets.
 
 ---
 
-## 6. 开源协议与致谢
+## 6. Open Source License and Acknowledgments
 
-本软件及相关源代码架构遵循 Apache 2.0 License 自由开源协议。我们鼓励开发者、集成商和从业者在商业或非商业经营活动中对本系统进行定制开发、私有化部署以及二次分发。
+This software and its related source code architecture operate under the Apache 2.0 License, a free and open-source license. We encourage developers, integrators, and practitioners to customize, privately deploy, and secondarily distribute this system in commercial or non-commercial operational activities.
 
-在引用、借鉴本项目的底层软件架构、核心防呆转载算法或前端设计范式时，请在产品文档或致谢部分标注原作者致谢：**[Ju1ian SyntaxErr0r Zhang]**。感谢对本项目的系统功能完善、深度测试与商业逻辑架构设计推演。
+When referencing or adapting the underlying software architecture, core fail-safe algorithms, or frontend design paradigms of this project, please credit the original author in the product documentation or acknowledgments section: **[Ju1ian SyntaxErr0r Zhang]**. Thank you for contributing to the functional refinement, deep testing, and commercial logical architecture deductions of this project.
