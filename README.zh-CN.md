@@ -1,6 +1,6 @@
-<h1 align = "center">
+<h1 align = "center">极简智能收银台系统 - 技术架构与设计规范</h1>
 
-极简智能收银台系统 - 技术架构与设计规范
+<div align = "center">
 
 [![WeChat](https://img.shields.io/badge/WeChat-Connect-07c160?logo=wechat&logoColor=white)](docs/images/WeChat.png)
 [![Telegram](https://img.shields.io/badge/Telegram-Connect-07c160?logo=telegram&logoColor=white)](docs/images/Telegram.png)

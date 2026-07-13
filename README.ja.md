@@ -1,6 +1,6 @@
-<h1 align = "center">
+<h1 align = "center">極簡スマートPOSシステム (Modern POS System) - 技術アーキテクチャと設計仕様</h1>
 
-極簡スマートPOSシステム (Modern POS System) - 技術アーキテクチャと設計仕様
+<div align = "center">
 
 [![WeChat](https://img.shields.io/badge/WeChat-Connect-07c160?logo=wechat&logoColor=white)](docs/images/WeChat.png)
 [![Telegram](https://img.shields.io/badge/Telegram-Connect-07c160?logo=telegram&logoColor=white)](docs/images/Telegram.png)

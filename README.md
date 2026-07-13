@@ -1,10 +1,8 @@
 *Read this in other languages: [English](README.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md)
 
----
+<h1 align = "center">Modern POS System - Technical Architecture and Design Specifications</h1>
 
-<h1 align = "center">
-
-Modern POS System - Technical Architecture and Design Specifications
+<div align = "center">
 
 [![WeChat](https://img.shields.io/badge/WeChat-Connect-07c160?logo=wechat&logoColor=white)](docs/images/WeChat.png)
 [![Telegram](https://img.shields.io/badge/Telegram-Connect-07c160?logo=telegram&logoColor=white)](docs/images/Telegram.png)
