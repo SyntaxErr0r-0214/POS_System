@@ -11,7 +11,7 @@
 ![Database](https://img.shields.io/badge/Database-SQLite3%20(Pure%20Go)-003B57?logo=sqlite&logoColor=white)
 ![Frontend](https://img.shields.io/badge/Frontend-Vanilla%20JS%20%7C%20HTML5%20%7C%20CSS3-E34F26?logo=html5&logoColor=white)
 ![Architecture](https://img.shields.io/badge/Architecture-RESTful%20%7C%20Single%20Binary-4A154B)
-![License](https://img.shields.io/badge/License-MIT-blue.svg)
+![License](https://img.shields.io/badge/License-Apache-blue.svg)
 
 </div>
 
