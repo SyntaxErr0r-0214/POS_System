@@ -175,7 +175,7 @@ func (r *OrderRepo) GetOrderByIDTx(tx *sql.Tx, orderID int) (*model.Order, error
 		return nil, err
 	}
 	return &o, nil
-}
+} 
 
 // GetItemsByOrderIDTx 获取订单明细 (事务版)
 func (r *OrderRepo) GetItemsByOrderIDTx(tx *sql.Tx, orderID int) ([]model.OrderItem, error) {
