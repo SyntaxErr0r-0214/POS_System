@@ -40,8 +40,8 @@ func (r *OrderRepo) CreateOrder(tx *sql.Tx, customer string, phone string, statu
 
 // CreateOrderItem 创建订单明细
 func (r *OrderRepo) CreateOrderItem(tx *sql.Tx, item model.OrderItem) error {
-	_, err := tx.Exec(`INSERT INTO order_items (order_id, product_id, product_name, price, qty_ordered, qty_picked, qty_paid) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		item.OrderID, item.ProductID, item.ProductName, item.Price, item.QtyOrdered, item.QtyPicked, item.QtyPaid)
+	_, err := tx.Exec(`INSERT INTO order_items (order_id, product_id, product_name, price, qty_ordered, qty_picked, qty_paid, unit) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		item.OrderID, item.ProductID, item.ProductName, item.Price, item.QtyOrdered, item.QtyPicked, item.QtyPaid, item.Unit)
 	return err
 }
 
@@ -93,6 +93,10 @@ func (r *OrderRepo) GetOrders(status string, query string, dateFilter string) ([
 		o.DailySeq = int(dailySeq.Int64)
 		orders = append(orders, o)
 	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return orders, nil
 }
 
@@ -116,7 +120,8 @@ func (r *OrderRepo) GetItemsByOrderID(orderID int) ([]model.OrderItem, error) {
 			oi.price, oi.qty_ordered, oi.qty_picked,
 			COALESCE(p.cost_price, 0),
 			COALESCE(oi.qty_refunded, 0),
-			COALESCE(oi.qty_paid, 0)
+			COALESCE(oi.qty_paid, 0),
+			COALESCE(oi.unit, '')
 		FROM order_items oi
 		LEFT JOIN products p ON oi.product_id = p.id
 		WHERE oi.order_id = ?
@@ -134,10 +139,14 @@ func (r *OrderRepo) GetItemsByOrderID(orderID int) ([]model.OrderItem, error) {
 			&i.ID, &i.OrderID, &i.ProductID, &i.ProductName,
 			&i.Price, &i.QtyOrdered, &i.QtyPicked,
 			&i.CostPrice, &i.QtyRefunded, &i.QtyPaid,
+			&i.Unit,
 		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return items, nil
 }
@@ -145,12 +154,68 @@ func (r *OrderRepo) GetItemsByOrderID(orderID int) ([]model.OrderItem, error) {
 // GetItemByID 获取单条明细
 func (r *OrderRepo) GetItemByID(tx *sql.Tx, itemID int) (*model.OrderItem, error) {
 	var i model.OrderItem
-	err := tx.QueryRow(`SELECT id, product_id, product_name, qty_ordered, qty_picked FROM order_items WHERE id = ?`, itemID).Scan(&i.ID, &i.ProductID, &i.ProductName, &i.QtyOrdered, &i.QtyPicked)
+	err := tx.QueryRow(`
+		SELECT id, product_id, product_name, price, qty_ordered, qty_picked, 
+		       COALESCE(qty_paid, 0), COALESCE(qty_refunded, 0), COALESCE(unit, '') 
+		FROM order_items WHERE id = ?`, itemID).
+		Scan(&i.ID, &i.ProductID, &i.ProductName, &i.Price, &i.QtyOrdered, &i.QtyPicked, &i.QtyPaid, &i.QtyRefunded, &i.Unit)
 	if err != nil {
 		return nil, err
 	}
 	return &i, nil
 }
+
+// GetOrderByIDTx 获取单条订单基本信息 (事务版)
+func (r *OrderRepo) GetOrderByIDTx(tx *sql.Tx, orderID int) (*model.Order, error) {
+	var o model.Order
+	err := tx.QueryRow("SELECT id, customer_name, phone, status, created_at, daily_seq FROM orders WHERE id = ?", orderID).Scan(
+		&o.ID, &o.CustomerName, &o.Phone, &o.Status, &o.CreatedAt, &o.DailySeq,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &o, nil
+}
+
+// GetItemsByOrderIDTx 获取订单明细 (事务版)
+func (r *OrderRepo) GetItemsByOrderIDTx(tx *sql.Tx, orderID int) ([]model.OrderItem, error) {
+	query := `
+		SELECT 
+			oi.id, oi.order_id, oi.product_id, oi.product_name, 
+			oi.price, oi.qty_ordered, oi.qty_picked,
+			COALESCE(p.cost_price, 0),
+			COALESCE(oi.qty_refunded, 0),
+			COALESCE(oi.qty_paid, 0),
+			COALESCE(oi.unit, '')
+		FROM order_items oi
+		LEFT JOIN products p ON oi.product_id = p.id
+		WHERE oi.order_id = ?
+	`
+	rows, err := tx.Query(query, orderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []model.OrderItem
+	for rows.Next() {
+		var i model.OrderItem
+		if err := rows.Scan(
+			&i.ID, &i.OrderID, &i.ProductID, &i.ProductName,
+			&i.Price, &i.QtyOrdered, &i.QtyPicked,
+			&i.CostPrice, &i.QtyRefunded, &i.QtyPaid,
+			&i.Unit,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 
 // UpdatePickedQty 更新已取数量并同步付款状态 (提货即代表付款)，带防超额提货并发检查
 func (r *OrderRepo) UpdatePickedQty(tx *sql.Tx, itemID int, qty int) error {
@@ -272,6 +337,9 @@ func (r *OrderRepo) GetProcurementList() ([]ProcurementItem, error) {
 			continue
 		}
 		list = append(list, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return list, nil
 }

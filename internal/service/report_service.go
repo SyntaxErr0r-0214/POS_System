@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"modern-pos/internal/repository"
 	"sort"
 	"time"
@@ -47,6 +48,8 @@ func (s *ReportService) GenerateReport(timeType string) (ReportResponse, error) 
 	case "year":
 		start = time.Date(now.Year(), 1, 1, 0, 0, 0, 0, time.Local)
 		end = start.AddDate(1, 0, 0)
+	default:
+		return ReportResponse{}, fmt.Errorf("不支持的统计时间类型: %s", timeType)
 	}
 
 	records, err := s.Repo.GetSalesData(start, end)

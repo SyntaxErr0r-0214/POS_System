@@ -12,6 +12,7 @@ import (
 type SystemHandler struct {
 	DB        *sql.DB
 	BackupSvc *service.BackupService
+	ReloadDB  func()
 }
 
 // Backup 实时执行热备份与完整性校验，并向管理员流式导出校验通过的备份文件
@@ -89,10 +90,17 @@ func (h *SystemHandler) Restore(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		defer dst.Close()
-		io.Copy(dst, src)
+		if _, errCopy := io.Copy(dst, src); errCopy != nil {
+			http.Error(w, "文件覆盖中途失败: "+errCopy.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
-	w.Write([]byte("数据库恢复及校验成功！底层结构完整，请务必重启收银程序以加载最新业务数据。"))
+	if h.ReloadDB != nil {
+		h.ReloadDB()
+	}
+
+	w.Write([]byte("数据库恢复及校验成功！系统已自动重载最新业务数据。"))
 }
 
 // Reset 初始化清空系统数据

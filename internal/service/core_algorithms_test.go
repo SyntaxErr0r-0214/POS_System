@@ -48,10 +48,11 @@ func TestPreOrderValidation(t *testing.T) {
 		CustomerName: "张先生",
 		Phone:        "13800000000",
 		Items: []struct {
-			ID      int    `json:"id"`
-			Qty     int    `json:"qty"`
-			Unit    string `json:"unit"`
-			QtyPaid int    `json:"qty_paid"`
+			ID      int     `json:"id"`
+			Qty     int     `json:"qty"`
+			Price   float64 `json:"price"`
+			Unit    string  `json:"unit"`
+			QtyPaid int     `json:"qty_paid"`
 		}{
 			{ID: prodID, Qty: 10, Unit: "斤", QtyPaid: 0},
 		},
@@ -85,10 +86,11 @@ func TestPreOrderValidation(t *testing.T) {
 		CustomerName: "张先生",
 		Phone:        "13800000000",
 		Items: []struct {
-			ID      int    `json:"id"`
-			Qty     int    `json:"qty"`
-			Unit    string `json:"unit"`
-			QtyPaid int    `json:"qty_paid"`
+			ID      int     `json:"id"`
+			Qty     int     `json:"qty"`
+			Price   float64 `json:"price"`
+			Unit    string  `json:"unit"`
+			QtyPaid int     `json:"qty_paid"`
 		}{
 			{ID: prodID, Qty: 2, Unit: "斤", QtyPaid: 0},
 		},
@@ -104,10 +106,11 @@ func TestPreOrderValidation(t *testing.T) {
 		CustomerName: "张先生",
 		Phone:        "13800000000",
 		Items: []struct {
-			ID      int    `json:"id"`
-			Qty     int    `json:"qty"`
-			Unit    string `json:"unit"`
-			QtyPaid int    `json:"qty_paid"`
+			ID      int     `json:"id"`
+			Qty     int     `json:"qty"`
+			Price   float64 `json:"price"`
+			Unit    string  `json:"unit"`
+			QtyPaid int     `json:"qty_paid"`
 		}{
 			{ID: prodID, Qty: 60, Unit: "斤", QtyPaid: 0},
 		},
@@ -125,7 +128,7 @@ func TestTempProductPricingSync(t *testing.T) {
 	defer db.Close()
 
 	// 创建临时预售商品（初次录入时未知进货价和售价，设为 0）
-	tempProd := model.Product{Barcode: "TEMP999", Name: "智利预售车厘子", Category: "生鲜", Price: 0.0, CostPrice: 0.0, Stock: 0, Unit: "件"}
+	tempProd := model.Product{Barcode: "TEMP999", Name: "智利预售车厘子", Category: "临时", Price: 0.0, CostPrice: 0.0, Stock: 0, Unit: "件"}
 	if err := pRepo.Create(tempProd); err != nil {
 		t.Fatalf("创建临时商品失败: %v", err)
 	}
@@ -137,10 +140,11 @@ func TestTempProductPricingSync(t *testing.T) {
 		CustomerName: "李女士",
 		Phone:        "13900000000",
 		Items: []struct {
-			ID      int    `json:"id"`
-			Qty     int    `json:"qty"`
-			Unit    string `json:"unit"`
-			QtyPaid int    `json:"qty_paid"`
+			ID      int     `json:"id"`
+			Qty     int     `json:"qty"`
+			Price   float64 `json:"price"`
+			Unit    string  `json:"unit"`
+			QtyPaid int     `json:"qty_paid"`
 		}{
 			{ID: prodID, Qty: 5, Unit: "件", QtyPaid: 0},
 		},
@@ -205,10 +209,11 @@ func TestItemLevelTrackingAndLifecycle(t *testing.T) {
 		CustomerName: "王董事长",
 		Phone:        "13600000000",
 		Items: []struct {
-			ID      int    `json:"id"`
-			Qty     int    `json:"qty"`
-			Unit    string `json:"unit"`
-			QtyPaid int    `json:"qty_paid"`
+			ID      int     `json:"id"`
+			Qty     int     `json:"qty"`
+			Price   float64 `json:"price"`
+			Unit    string  `json:"unit"`
+			QtyPaid int     `json:"qty_paid"`
 		}{
 			{ID: idA, Qty: 5, Unit: "箱", QtyPaid: 0},
 			{ID: idB, Qty: 10, Unit: "个", QtyPaid: 0},

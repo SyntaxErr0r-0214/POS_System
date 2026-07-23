@@ -43,10 +43,11 @@ type BookingRequest struct {
 	CustomerName string `json:"customer_name"`
 	Phone        string `json:"phone"`
 	Items        []struct {
-		ID      int    `json:"id"`
-		Qty     int    `json:"qty"`
-		Unit    string `json:"unit"`
-		QtyPaid int    `json:"qty_paid"`
+		ID      int     `json:"id"`
+		Qty     int     `json:"qty"`
+		Price   float64 `json:"price"`
+		Unit    string  `json:"unit"`
+		QtyPaid int     `json:"qty_paid"`
 	} `json:"items"`
 }
 
@@ -55,10 +56,11 @@ type UpdateOrderRequest struct {
 	CustomerName string `json:"customer_name"`
 	Phone        string `json:"phone"`
 	Items        []struct {
-		ID      int    `json:"id"`
-		Qty     int    `json:"qty"`
-		Unit    string `json:"unit"`
-		QtyPaid int    `json:"qty_paid"`
+		ID      int     `json:"id"`
+		Qty     int     `json:"qty"`
+		Price   float64 `json:"price"`
+		Unit    string  `json:"unit"`
+		QtyPaid int     `json:"qty_paid"`
 	} `json:"items"`
 }
 

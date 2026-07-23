@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>万康生态食品团购超市 POS</title>
-    <script src="https://cdn.bootcdn.net/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
       :root {
         --primary: #10b981;
@@ -1455,6 +1455,21 @@
       </div>
     </div>
 
+    <div class="modal-overlay" id="pickup-confirm-modal" style="z-index: 2000">
+      <div class="modal" style="width: 500px">
+        <h3>确认提货明细</h3>
+        <div id="pickup-confirm-list" style="margin: 15px 0; max-height: 300px; overflow-y: auto; padding: 10px; background: #f9fafb; border-radius: 8px;"></div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 20px; font-size: 16px;">
+          <span>本次提货应付总额:</span>
+          <span id="pickup-confirm-total" style="font-size: 22px; font-weight: 800; color: var(--primary);">¥0.00</span>
+        </div>
+        <div class="modal-footer" style="margin-top: 20px;">
+          <button class="btn btn-outline" onclick="document.getElementById('pickup-confirm-modal').style.display='none'">取消</button>
+          <button class="btn btn-primary" onclick="executePickup()">确认提货并打印</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal-overlay" id="booking-modal">
       <div class="modal" style="width: 520px">
         <h3>新建预订</h3>
@@ -1840,6 +1855,7 @@
 
         fetch("/api/inventory/save", {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(p),
         })
           .then((r) => r.json())
@@ -1979,6 +1995,7 @@
         }
         fetch("/api/checkout", {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ items: cart }),
         }).then((r) =>
           r.ok
@@ -2289,17 +2306,65 @@
         el.value = v;
       }
 
+      let pendingPickupItems = [];
+      
       function submitPickup() {
-        const items = [];
+        pendingPickupItems = [];
         document.querySelectorAll(".pickup-input").forEach((e) => {
           const q = parseInt(e.value);
-          if (q > 0) items.push({ item_id: parseInt(e.dataset.id), qty: q });
+          if (q > 0) pendingPickupItems.push({ item_id: parseInt(e.dataset.id), qty: q });
         });
-        if (items.length === 0) return showToast("请输入数量", "error");
+        if (pendingPickupItems.length === 0) return showToast("请输入数量", "error");
 
+        // 渲染明细
+        const listEl = document.getElementById("pickup-confirm-list");
+        let html = "";
+        let totalToPay = 0;
+        
+        pendingPickupItems.forEach(pi => {
+           const oItem = currentOrder.items.find(x => x.id === pi.item_id);
+           if (!oItem) return;
+           
+           const oldTotalPicked = oItem.qty_picked;
+           const newTotalPicked = oldTotalPicked + pi.qty;
+           const qtyPaid = oItem.qty_paid || 0;
+           
+           // 计算本次应付数量 = MAX(0, 提货后总提取数 - 已付总数) - MAX(0, 提货前总提取数 - 已付总数)
+           const paidBefore = Math.max(0, oldTotalPicked - qtyPaid);
+           const paidAfter = Math.max(0, newTotalPicked - qtyPaid);
+           const payNowQty = paidAfter - paidBefore;
+           const payNowAmount = payNowQty * oItem.price;
+           
+           totalToPay += payNowAmount;
+           
+           const prePaidTag = (pi.qty - payNowQty > 0) ? `<span style="background:#dcfce7;color:#16a34a;font-size:11px;padding:2px 6px;border-radius:4px;font-weight:700;margin-left:6px;">使用预付 (x${pi.qty - payNowQty})</span>` : "";
+           
+           html += `<div style="display:flex; justify-content:space-between; margin-bottom: 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px;">
+              <div>
+                 <div style="font-weight:700;">${oItem.product_name} ${prePaidTag}</div>
+                 <div style="font-size: 13px; color: #6b7280;">提货: <b>x${pi.qty}</b> (单价: ¥${oItem.price})</div>
+              </div>
+              <div style="font-weight: 800; color: ${payNowAmount > 0 ? 'var(--primary)' : '#9ca3af'};">
+                 +¥${payNowAmount.toFixed(2)}
+              </div>
+           </div>`;
+        });
+        
+        listEl.innerHTML = html;
+        document.getElementById("pickup-confirm-total").innerText = `¥${totalToPay.toFixed(2)}`;
+        document.getElementById("pickup-confirm-modal").style.display = "flex";
+      }
+
+      function executePickup() {
+        const items = pendingPickupItems;
+        if (items.length === 0) return;
+        
         const savedOrderId = currentOrder.id;
+        document.getElementById('pickup-confirm-modal').style.display='none';
+        
         fetch("/api/pickup", {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ order_id: currentOrder.id, items }),
         }).then(async (r) => {
           if (r.ok) {
@@ -2423,6 +2488,7 @@
 
         fetch("/api/refund/partial", {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ order_id: currentOrder.id, items: items }),
         }).then(async (r) => {
           if (r.ok) {
@@ -2504,7 +2570,7 @@
           procurementData = needs.map((item) => {
             let toBuy = item.total_needed - item.current_stock;
             if (toBuy < 0) toBuy = 0;
-            const exist = allProducts.find((p) => p.id === item.product_id);
+            const exist = inventory.find((p) => p.id === item.product_id);
             return {
               id: item.product_id,
               product_name: item.product_name,
@@ -2513,6 +2579,7 @@
               to_buy: toBuy,
               default_cost: exist ? exist.cost_price : 0,
               default_price: exist ? exist.price : 0,
+              unit: exist ? (exist.unit || "个") : "个",
             };
           });
           renderProcurementTable();
@@ -2577,6 +2644,7 @@
 
         fetch("/api/inventory/procure", {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(selected),
         }).then((r) => {
           if (r.ok) {
@@ -2596,7 +2664,6 @@
                   const freshItem = list.find((p) => p.id === cartItem.id);
                   if (
                     freshItem &&
-                    cartItem.price === 0 &&
                     freshItem.price > 0
                   ) {
                     cartItem.price = freshItem.price;
@@ -2675,7 +2742,7 @@
 
       function delProd(id) {
         showConfirm("确定要删除该商品吗？此操作不可恢复。", () => {
-          fetch(`/api/inventory/delete?id=${id}`).then((r) =>
+          fetch(`/api/inventory/delete?id=${id}`, { method: "POST" }).then((r) =>
             r.ok
               ? (showToast("已删除"), loadInventory())
               : showToast("失败", "error"),
@@ -2705,7 +2772,8 @@
           () => {
             fetch("/api/inventory/batch-delete", {
               method: "POST",
-              body: JSON.stringify({ ids: ids }),
+              headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids: ids }),
             })
               .then((r) => r.json())
               .then((res) => {
@@ -2737,6 +2805,7 @@
         if (!newCat) return showToast("请输入分类名称", "error");
         fetch("/api/inventory/batch-category", {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ids: ids, category: newCat }),
         })
           .then((r) => r.json())
@@ -2793,6 +2862,7 @@
         };
         fetch("/api/inventory/save", {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(p),
         })
           .then((r) => r.json())
@@ -2844,8 +2914,7 @@
           .map((c, idx) => {
             const price = (c.price || 0) * c.qty;
             const isPaid =
-              (c.original_qty_paid && c.original_qty_paid >= c.qty) ||
-              c.original_qty_paid > 0
+              c.original_qty_paid && c.original_qty_paid >= c.qty
                 ? "checked"
                 : "";
             return `<div style="display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:1px solid #f3f4f6;">
@@ -2865,13 +2934,14 @@
         const n = document.getElementById("book-name").value,
           p = document.getElementById("book-phone").value;
         if (!n) return showToast("姓名必填", "error");
-        // 构建 items，带上 qty_paid
+        // 构建 items，带上 qty_paid 和 price
         const items = cart.map((c, idx) => {
           const cb = document.querySelector(`.book-pay-cb[data-idx="${idx}"]`);
           let qtyPaid = cb && cb.checked ? c.qty : 0;
           return {
             id: c.id,
             qty: c.qty,
+            price: c.price,
             unit: c.unit || "",
             qty_paid: qtyPaid,
           };
@@ -2880,7 +2950,8 @@
         if (editingOrderId) {
           fetch("/api/order/update", {
             method: "POST",
-            body: JSON.stringify({
+            headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
               order_id: editingOrderId,
               customer_name: n,
               phone: p,
@@ -2899,7 +2970,8 @@
         } else {
           fetch("/api/book", {
             method: "POST",
-            body: JSON.stringify({ customer_name: n, phone: p, items }),
+            headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ customer_name: n, phone: p, items }),
           }).then((r) =>
             r.ok
               ? (showToast("挂单成功"),
@@ -2926,7 +2998,8 @@
         window.location.href = `/api/system/backup?token=${encodeURIComponent(token)}`;
       }
       function restoreData(i) {
-        if (!i.files[0]) return;
+        const file = i.files[0];
+        if (!file) return;
         const token = getAdminToken();
         if (!token) {
           i.value = "";
@@ -2934,7 +3007,7 @@
         }
         showConfirm("恢复将覆盖当前系统数据，确定继续？", () => {
           const fd = new FormData();
-          fd.append("db_file", i.files[0]);
+          fd.append("db_file", file);
           fetch(`/api/system/restore?token=${encodeURIComponent(token)}`, {
             method: "POST",
             headers: { "X-Admin-Token": token },

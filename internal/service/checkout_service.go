@@ -26,6 +26,15 @@ func NewCheckoutService(db *sql.DB, pRepo *repository.ProductRepo, oRepo *reposi
 
 // Checkout 实时结算 (现货交易)
 func (s *CheckoutService) Checkout(req model.CheckoutRequest) error {
+	if len(req.Items) == 0 {
+		return fmt.Errorf("订单不能为空，请至少添加一件商品")
+	}
+	for _, itemReq := range req.Items {
+		if itemReq.Qty <= 0 {
+			return fmt.Errorf("商品数量必须大于0")
+		}
+	}
+
 	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
@@ -56,16 +65,22 @@ func (s *CheckoutService) Checkout(req model.CheckoutRequest) error {
 			return fmt.Errorf("商品ID %d 异常", itemReq.ID)
 		}
 
-		if p.Stock < itemReq.Qty {
-			return fmt.Errorf("商品 %s 库存不足(剩%d)", p.Name, p.Stock)
-		}
-
-		if err := s.ProductRepo.DecreaseStock(tx, p.ID, itemReq.Qty); err != nil {
-			return err
+		if p.Category == "临时" {
+			if itemReq.Price > 0 {
+				p.Price = itemReq.Price
+				_, _ = tx.Exec("UPDATE products SET price = ? WHERE id = ?", p.Price, p.ID)
+			}
+		} else {
+			if p.Stock < itemReq.Qty {
+				return fmt.Errorf("商品 %s 库存不足(剩%d)", p.Name, p.Stock)
+			}
+			if err := s.ProductRepo.DecreaseStock(tx, p.ID, itemReq.Qty); err != nil {
+				return err
+			}
 		}
 
 		finalPrice := p.Price
-		if itemReq.Price >= 0 {
+		if itemReq.Price > 0 {
 			finalPrice = itemReq.Price
 		}
 
@@ -108,6 +123,15 @@ func (s *CheckoutService) Checkout(req model.CheckoutRequest) error {
 
 // Book 预订 (静默模式)
 func (s *CheckoutService) Book(req model.BookingRequest) error {
+	if len(req.Items) == 0 {
+		return fmt.Errorf("订单不能为空，请至少添加一件商品")
+	}
+	for _, itemReq := range req.Items {
+		if itemReq.Qty <= 0 {
+			return fmt.Errorf("商品数量必须大于0")
+		}
+	}
+
 	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
@@ -136,21 +160,33 @@ func (s *CheckoutService) Book(req model.BookingRequest) error {
 			return fmt.Errorf("商品ID %d 异常", itemReq.ID)
 		}
 
+		// 如果是临时商品，使用前端传来的初始定价，并同步回商品表，以供入库单界面查看
+		if p.Category == "临时" && itemReq.Price > 0 {
+			p.Price = itemReq.Price
+			_, _ = tx.Exec("UPDATE products SET price = ? WHERE id = ?", p.Price, p.ID)
+		}
+
 		qtyPickedNow := itemReq.QtyPaid
 		if qtyPickedNow > itemReq.Qty {
 			qtyPickedNow = itemReq.Qty
 		}
 
-		if qtyPickedNow > 0 {
-			if err := s.ProductRepo.DecreaseStock(tx, p.ID, qtyPickedNow); err != nil {
+		unit := itemReq.Unit
+		if unit == "" {
+			unit = p.Unit
+		}
+
+		if p.Category != "临时" {
+			if p.Stock < itemReq.Qty {
+				return fmt.Errorf("商品 %s 库存不足(需要%d，剩%d)", p.Name, itemReq.Qty, p.Stock)
+			}
+			if err := s.ProductRepo.DecreaseStock(tx, p.ID, itemReq.Qty); err != nil {
 				return err
 			}
+		}
 
+		if qtyPickedNow > 0 {
 			hasPaid = true
-			unit := itemReq.Unit
-			if unit == "" {
-				unit = p.Unit
-			}
 			sub := p.Price * float64(qtyPickedNow)
 			paidTotal += sub
 			paidItems = append(paidItems, paidEntry{Name: p.Name, Unit: unit, Price: p.Price, Qty: qtyPickedNow})
@@ -158,10 +194,7 @@ func (s *CheckoutService) Book(req model.BookingRequest) error {
 
 		item := model.OrderItem{
 			OrderID: int(orderID), ProductID: p.ID, ProductName: p.Name,
-			Price: p.Price, QtyOrdered: itemReq.Qty, QtyPicked: qtyPickedNow, QtyPaid: itemReq.QtyPaid, Unit: itemReq.Unit,
-		}
-		if item.Unit == "" {
-			item.Unit = p.Unit
+			Price: p.Price, QtyOrdered: itemReq.Qty, QtyPicked: 0, QtyPaid: itemReq.QtyPaid, Unit: unit,
 		}
 		if err := s.OrderRepo.CreateOrderItem(tx, item); err != nil {
 			return err
@@ -204,6 +237,15 @@ func (s *CheckoutService) Book(req model.BookingRequest) error {
 
 // UpdateOrder 修改进行中的预订单
 func (s *CheckoutService) UpdateOrder(req model.UpdateOrderRequest) error {
+	if len(req.Items) == 0 {
+		return fmt.Errorf("订单明细不能为空")
+	}
+	for _, itemReq := range req.Items {
+		if itemReq.Qty <= 0 {
+			return fmt.Errorf("商品数量必须大于0")
+		}
+	}
+
 	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
@@ -211,7 +253,7 @@ func (s *CheckoutService) UpdateOrder(req model.UpdateOrderRequest) error {
 	defer tx.Rollback()
 
 	// 1. 获取原订单及明细
-	order, err := s.OrderRepo.GetOrderByID(req.OrderID)
+	order, err := s.OrderRepo.GetOrderByIDTx(tx, req.OrderID)
 	if err != nil {
 		return err
 	}
@@ -219,7 +261,7 @@ func (s *CheckoutService) UpdateOrder(req model.UpdateOrderRequest) error {
 		return fmt.Errorf("只能修改进行中的订单")
 	}
 
-	oldItems, err := s.OrderRepo.GetItemsByOrderID(req.OrderID)
+	oldItems, err := s.OrderRepo.GetItemsByOrderIDTx(tx, req.OrderID)
 	if err != nil {
 		return err
 	}
@@ -245,24 +287,33 @@ func (s *CheckoutService) UpdateOrder(req model.UpdateOrderRequest) error {
 				return fmt.Errorf("商品【%s】的数量不能减少到 %d 以下 (已提/退部分无法被删减)", oldItem.ProductName, minRequiredQty)
 			}
 
+			if p, err := s.ProductRepo.FindByID(tx, itemReq.ID); err == nil && p.Category == "临时" && itemReq.Price > 0 {
+				p.Price = itemReq.Price
+				_, _ = tx.Exec("UPDATE products SET price = ? WHERE id = ?", p.Price, p.ID)
+				// 同步订单明细价格
+				_, _ = tx.Exec("UPDATE order_items SET price = ? WHERE id = ?", p.Price, oldItem.ID)
+			}
+
 			// 更新库存 (新数量与旧数量差值)
 			diffQty := itemReq.Qty - oldItem.QtyOrdered
-			if diffQty > 0 {
-				// 需要扣减更多库存
+			if diffQty != 0 {
 				p, err := s.ProductRepo.FindByID(tx, itemReq.ID)
 				if err != nil {
 					return err
 				}
-				if p.Stock < diffQty {
-					return fmt.Errorf("【%s】库存不足(需要追加%d，仅剩%d)", p.Name, diffQty, p.Stock)
-				}
-				if err := s.ProductRepo.DecreaseStock(tx, itemReq.ID, diffQty); err != nil {
-					return err
-				}
-			} else if diffQty < 0 {
-				// 恢复剩余库存
-				if err := s.ProductRepo.IncreaseStock(tx, itemReq.ID, -diffQty); err != nil {
-					return err
+				if p.Category != "临时" {
+					if diffQty > 0 {
+						if p.Stock < diffQty {
+							return fmt.Errorf("【%s】库存不足(需要追加%d，仅剩%d)", p.Name, diffQty, p.Stock)
+						}
+						if err := s.ProductRepo.DecreaseStock(tx, itemReq.ID, diffQty); err != nil {
+							return err
+						}
+					} else {
+						if err := s.ProductRepo.IncreaseStock(tx, itemReq.ID, -diffQty); err != nil {
+							return err
+						}
+					}
 				}
 			}
 
@@ -283,11 +334,18 @@ func (s *CheckoutService) UpdateOrder(req model.UpdateOrderRequest) error {
 			if err != nil {
 				return fmt.Errorf("新增商品异常")
 			}
-			if p.Stock < itemReq.Qty {
-				return fmt.Errorf("【%s】库存不足(需要%d，剩%d)", p.Name, itemReq.Qty, p.Stock)
-			}
-			if err := s.ProductRepo.DecreaseStock(tx, itemReq.ID, itemReq.Qty); err != nil {
-				return err
+			if p.Category == "临时" {
+				if itemReq.Price > 0 {
+					p.Price = itemReq.Price
+					_, _ = tx.Exec("UPDATE products SET price = ? WHERE id = ?", p.Price, p.ID)
+				}
+			} else {
+				if p.Stock < itemReq.Qty {
+					return fmt.Errorf("【%s】库存不足(需要%d，剩%d)", p.Name, itemReq.Qty, p.Stock)
+				}
+				if err := s.ProductRepo.DecreaseStock(tx, itemReq.ID, itemReq.Qty); err != nil {
+					return err
+				}
 			}
 
 			item := model.OrderItem{
@@ -306,9 +364,12 @@ func (s *CheckoutService) UpdateOrder(req model.UpdateOrderRequest) error {
 			if oldItem.QtyPicked > 0 || oldItem.QtyRefunded > 0 {
 				return fmt.Errorf("商品【%s】已经产生过提货或退款记录，不能直接删除。请将其修改为已发生数量。", oldItem.ProductName)
 			}
-			// 恢复库存并删除记录
-			if err := s.ProductRepo.IncreaseStock(tx, int(oldItem.ProductID), oldItem.QtyOrdered); err != nil {
-				return err
+			// 如果该商品非临时商品，需返还库存
+			p, err := s.ProductRepo.FindByID(tx, oldItem.ProductID)
+			if err == nil && p.Category != "临时" {
+				if err := s.ProductRepo.IncreaseStock(tx, oldItem.ProductID, oldItem.QtyOrdered); err != nil {
+					return err
+				}
 			}
 			if err := s.OrderRepo.DeleteOrderItem(tx, oldItem.ID); err != nil {
 				return err
@@ -358,14 +419,16 @@ func (s *CheckoutService) Pickup(req model.PickupRequest) error {
 			}
 		}
 
-		if product.Stock < pickItem.Qty {
-			return fmt.Errorf("【%s】库存不足(剩%d)", product.Name, product.Stock)
+		// 对于非临时商品，取消Pickup时的物理库存扣减（在挂单时已提前锁定库存）
+		// 但是对于临时商品，由于挂单时并未锁定物理库存（因为没库存），所以在提货时必须检查并扣减！
+		if product.Category == "临时" {
+			if product.Stock < pickItem.Qty {
+				return fmt.Errorf("临时商品【%s】尚未完成采购入库 (需:%d，当前库存:%d)", product.Name, pickItem.Qty, product.Stock)
+			}
+			if err := s.ProductRepo.DecreaseStock(tx, int(orderItem.ProductID), pickItem.Qty); err != nil {
+				return err
+			}
 		}
-
-		if err := s.ProductRepo.DecreaseStock(tx, int(orderItem.ProductID), pickItem.Qty); err != nil {
-			return err
-		}
-
 		newPickedQty := orderItem.QtyPicked + pickItem.Qty
 		if orderItem.QtyOrdered-newPickedQty < 0 {
 			return fmt.Errorf("商品【%s】提货量超出剩余量", orderItem.ProductName)
@@ -585,8 +648,16 @@ func (s *CheckoutService) PartialRefund(req PartialRefundRequest) error {
 		return err
 	}
 
+	var unpickedCount int
+	err = tx.QueryRow("SELECT COUNT(*) FROM order_items WHERE order_id = ? AND qty_picked < qty_ordered", req.OrderID).Scan(&unpickedCount)
+	if err != nil {
+		return err
+	}
+
 	newStatus := "Partial"
-	if totalItemsRefundedBefore == totalItemsOrdered {
+	if unpickedCount > 0 {
+		newStatus = "Pending"
+	} else if totalItemsRefundedBefore == totalItemsOrdered {
 		newStatus = "Refunded"
 	}
 
@@ -615,7 +686,7 @@ func (s *CheckoutService) RefundOrder(orderID int) error {
 		return fmt.Errorf("该订单已退款")
 	}
 
-	items, err := s.OrderRepo.GetItemsByOrderID(orderID)
+	items, err := s.OrderRepo.GetItemsByOrderIDTx(tx, orderID)
 	if err != nil {
 		return err
 	}
@@ -655,6 +726,21 @@ func (s *CheckoutService) DeleteOrder(orderID int) error {
 		return err
 	}
 	defer tx.Rollback()
+
+	// 删除前将库存退还（对于未取走且未退款的部分）
+	items, err := s.OrderRepo.GetItemsByOrderIDTx(tx, orderID)
+	if err == nil {
+		for _, item := range items {
+			qtyToReturn := item.QtyOrdered - item.QtyPicked - item.QtyRefunded
+			if qtyToReturn > 0 {
+				var category string
+				err = tx.QueryRow("SELECT category FROM products WHERE id = ?", item.ProductID).Scan(&category)
+				if err == nil && category != "临时" {
+					_ = s.ProductRepo.IncreaseStock(tx, item.ProductID, qtyToReturn)
+				}
+			}
+		}
+	}
 
 	if err := s.OrderRepo.DeleteOrder(tx, orderID); err != nil {
 		return err

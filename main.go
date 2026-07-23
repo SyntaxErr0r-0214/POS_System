@@ -73,6 +73,16 @@ func main() {
 	oHandler := &handler.OrderHandler{Service: checkoutSvc}
 	rHandler := &handler.ReportHandler{Service: reportSvc}
 	sysHandler := &handler.SystemHandler{DB: db, BackupSvc: backupSvc}
+	sysHandler.ReloadDB = func() {
+		newDB := database.Init()
+		db = newDB // Update local variable for graceful shutdown
+		pRepo.DB = newDB
+		oRepo.DB = newDB
+		rRepo.DB = newDB
+		checkoutSvc.DB = newDB
+		backupSvc.DB = newDB
+		sysHandler.DB = newDB
+	}
 
 	http.Handle("/", http.FileServer(getFileSystem()))
 

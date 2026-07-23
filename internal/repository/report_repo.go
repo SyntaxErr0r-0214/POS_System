@@ -60,5 +60,8 @@ func (r *ReportRepo) GetSalesData(start, end time.Time) ([]SaleRecord, error) {
 			list = append(list, s)
 		}
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return list, nil
 }

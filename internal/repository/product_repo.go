@@ -81,6 +81,9 @@ func (r *ProductRepo) GetAll() ([]model.Product, error) {
 		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock, &p.Unit)
 		products = append(products, p)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return products, nil
 }
 
@@ -99,6 +102,9 @@ func (r *ProductRepo) SearchInventory(query string) ([]model.Product, error) {
 		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock, &p.Unit)
 		list = append(list, p)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return list, nil
 }
 
@@ -116,6 +122,9 @@ func (r *ProductRepo) Search(query string) ([]model.Product, error) {
 		var p model.Product
 		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock, &p.Unit)
 		list = append(list, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return list, nil
 }
@@ -211,6 +220,7 @@ func (r *ProductRepo) BatchProcure(items []map[string]interface{}) error {
 	if err != nil {
 		return err
 	}
+	defer tx.Rollback()
 
 	stmt, err := tx.Prepare("UPDATE products SET stock = stock + ?, cost_price = ?, price = ? WHERE id = ?")
 	if err != nil {
@@ -219,20 +229,25 @@ func (r *ProductRepo) BatchProcure(items []map[string]interface{}) error {
 	defer stmt.Close()
 
 	for _, item := range items {
-		id := int64(item["id"].(float64))
-		addStock := int(item["add_stock"].(float64))
-		cost := item["cost"].(float64)
-		price := item["price"].(float64)
+		idFloat, ok1 := item["id"].(float64)
+		addStockFloat, ok2 := item["add_stock"].(float64)
+		cost, ok3 := item["cost"].(float64)
+		price, ok4 := item["price"].(float64)
+
+		if !ok1 || !ok2 || !ok3 || !ok4 {
+			return fmt.Errorf("采购数据格式异常，缺少必要参数或类型错误")
+		}
+
+		id := int64(idFloat)
+		addStock := int(addStockFloat)
 
 		if _, err := stmt.Exec(addStock, cost, price, id); err != nil {
-			tx.Rollback()
 			return err
 		}
 
 		if price > 0 {
-			if _, err := tx.Exec(`UPDATE order_items SET price = ? WHERE product_id = ? AND price = 0
+			if _, err := tx.Exec(`UPDATE order_items SET price = ? WHERE product_id = ?
 				AND order_id IN (SELECT id FROM orders WHERE status = 'Pending')`, price, id); err != nil {
-				tx.Rollback()
 				return err
 			}
 		}
