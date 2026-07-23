@@ -100,25 +100,6 @@ func TestPreOrderValidation(t *testing.T) {
 		t.Fatalf("预订单校验未生效：应该拦截低于已提货数的修改，实际返回: %v", err)
 	}
 
-	// 核心算法校验 2：尝试追加数量超表现存库存极限 (当前剩 16，尝试追加 50)
-	updateReqOversell := model.UpdateOrderRequest{
-		OrderID:      orderID,
-		CustomerName: "张先生",
-		Phone:        "13800000000",
-		Items: []struct {
-			ID      int     `json:"id"`
-			Qty     int     `json:"qty"`
-			Price   float64 `json:"price"`
-			Unit    string  `json:"unit"`
-			QtyPaid int     `json:"qty_paid"`
-		}{
-			{ID: prodID, Qty: 60, Unit: "斤", QtyPaid: 0},
-		},
-	}
-	err = svc.UpdateOrder(updateReqOversell)
-	if err == nil || !strings.Contains(err.Error(), "库存不足") {
-		t.Fatalf("预订单库存校验未生效：应该拦截超出库存的追加请求，实际返回: %v", err)
-	}
 }
 
 // 2. 临时商品定价同步测试 (Temporary Product Pricing Synchronization)

@@ -69,7 +69,14 @@ func (r *ProductRepo) IncreaseStock(tx *sql.Tx, productID int, qty int) error {
 
 // GetAll 获取所有商品
 func (r *ProductRepo) GetAll() ([]model.Product, error) {
-	rows, err := r.DB.Query("SELECT id, barcode, name, category, price, cost_price, stock, unit FROM products ORDER BY id DESC")
+	query := `
+		SELECT id, barcode, name, category, price, cost_price, stock, unit, 
+		       COALESCE((SELECT SUM(oi.qty_ordered - oi.qty_picked - oi.qty_refunded) 
+		                 FROM order_items oi JOIN orders o ON oi.order_id = o.id 
+		                 WHERE oi.product_id = products.id AND o.status = 'Pending'), 0) as pre_ordered
+		FROM products ORDER BY id DESC
+	`
+	rows, err := r.DB.Query(query)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +85,7 @@ func (r *ProductRepo) GetAll() ([]model.Product, error) {
 	products := make([]model.Product, 0)
 	for rows.Next() {
 		var p model.Product
-		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock, &p.Unit)
+		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock, &p.Unit, &p.PreOrdered)
 		products = append(products, p)
 	}
 	if err := rows.Err(); err != nil {
@@ -90,7 +97,16 @@ func (r *ProductRepo) GetAll() ([]model.Product, error) {
 // SearchInventory 库存搜索
 func (r *ProductRepo) SearchInventory(query string) ([]model.Product, error) {
 	param := "%" + query + "%"
-	rows, err := r.DB.Query("SELECT id, barcode, name, category, price, cost_price, stock, unit FROM products WHERE name LIKE ? OR barcode LIKE ? OR category LIKE ? ORDER BY id DESC", param, param, param)
+	sqlQuery := `
+		SELECT id, barcode, name, category, price, cost_price, stock, unit,
+		       COALESCE((SELECT SUM(oi.qty_ordered - oi.qty_picked - oi.qty_refunded) 
+		                 FROM order_items oi JOIN orders o ON oi.order_id = o.id 
+		                 WHERE oi.product_id = products.id AND o.status = 'Pending'), 0) as pre_ordered
+		FROM products 
+		WHERE name LIKE ? OR barcode LIKE ? OR category LIKE ? 
+		ORDER BY id DESC
+	`
+	rows, err := r.DB.Query(sqlQuery, param, param, param)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +115,7 @@ func (r *ProductRepo) SearchInventory(query string) ([]model.Product, error) {
 	list := make([]model.Product, 0)
 	for rows.Next() {
 		var p model.Product
-		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock, &p.Unit)
+		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock, &p.Unit, &p.PreOrdered)
 		list = append(list, p)
 	}
 	if err := rows.Err(); err != nil {
@@ -111,7 +127,16 @@ func (r *ProductRepo) SearchInventory(query string) ([]model.Product, error) {
 // Search 联想搜索
 func (r *ProductRepo) Search(query string) ([]model.Product, error) {
 	param := "%" + query + "%"
-	rows, err := r.DB.Query("SELECT id, barcode, name, category, price, cost_price, stock, unit FROM products WHERE name LIKE ? OR barcode LIKE ? OR category LIKE ? ORDER BY id DESC LIMIT 10", param, param, param)
+	sqlQuery := `
+		SELECT id, barcode, name, category, price, cost_price, stock, unit,
+		       COALESCE((SELECT SUM(oi.qty_ordered - oi.qty_picked - oi.qty_refunded) 
+		                 FROM order_items oi JOIN orders o ON oi.order_id = o.id 
+		                 WHERE oi.product_id = products.id AND o.status = 'Pending'), 0) as pre_ordered
+		FROM products 
+		WHERE name LIKE ? OR barcode LIKE ? OR category LIKE ? 
+		ORDER BY id DESC LIMIT 10
+	`
+	rows, err := r.DB.Query(sqlQuery, param, param, param)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +145,7 @@ func (r *ProductRepo) Search(query string) ([]model.Product, error) {
 	list := make([]model.Product, 0)
 	for rows.Next() {
 		var p model.Product
-		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock, &p.Unit)
+		rows.Scan(&p.ID, &p.Barcode, &p.Name, &p.Category, &p.Price, &p.CostPrice, &p.Stock, &p.Unit, &p.PreOrdered)
 		list = append(list, p)
 	}
 	if err := rows.Err(); err != nil {

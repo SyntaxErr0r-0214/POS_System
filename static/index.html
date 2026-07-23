@@ -1820,7 +1820,10 @@
         const items = filtered
           .map((p) => {
             const isTemp = p.price === 0;
-            const isOut = !isTemp && p.stock <= 0;
+            const cartItem = cart.find(c => c.id === p.id);
+            const cartQty = cartItem ? cartItem.qty : 0;
+            const availableStock = isTemp ? 0 : (p.stock - (p.pre_ordered || 0) - cartQty);
+            const isOut = !isTemp && availableStock <= 0;
             let badge = "";
             if (isTemp)
               badge = '<div class="badge-procure">待采购入库</div>';
@@ -1831,7 +1834,7 @@
                 <div class="p-name">${p.name}</div>
                 <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:auto;">
                     <div class="p-price">¥${p.price}<span style="font-size:14px;color:#666">/${p.unit || "个"}</span></div>
-                    ${!isTemp && !isOut ? `<div class="p-stock ${p.stock < 10 ? "low" : ""}">${p.stock}</div>` : ""}
+                    ${!isTemp && !isOut ? `<div class="p-stock ${availableStock < 10 ? "low" : ""}">${availableStock}</div>` : ""}
                 </div>
             </div>`;
           })
@@ -1949,6 +1952,11 @@
         document.getElementById("cart-list").innerHTML = cartHtml;
         document.getElementById("total-val").innerText = t.toFixed(2);
 
+        // Update product grid dynamic stock if visible
+        if (typeof allProducts !== 'undefined' && allProducts.length > 0 && document.getElementById("product-grid").style.display !== 'none') {
+            renderProductGrid(allProducts);
+        }
+
         // Handle editing order logic for action buttons
         const btnClear = document.getElementById("btn-cart-clear");
         const btnBook = document.getElementById("btn-cart-book");
@@ -1986,10 +1994,10 @@
       }
       function checkout() {
         if (cart.length === 0) return showToast("空车", "error");
-        const lack = cart.find((i) => i.qty > i.stock);
+        const lack = cart.find((i) => i.qty > (i.stock - (i.pre_ordered || 0)));
         if (lack) {
           return showToast(
-            `库存不足: ${lack.name} (剩${lack.stock})，请使用【挂单预订】`,
+            `可用库存不足: ${lack.name} (剩${lack.stock - (lack.pre_ordered || 0)})，请使用【挂单预订】`,
             "error",
           );
         }
@@ -2568,7 +2576,7 @@
         ]).then(([needs, inventory]) => {
           if (!needs) needs = [];
           procurementData = needs.map((item) => {
-            let toBuy = item.total_needed - item.current_stock;
+            let toBuy = item.total_needed;
             if (toBuy < 0) toBuy = 0;
             const exist = inventory.find((p) => p.id === item.product_id);
             return {
@@ -2601,7 +2609,7 @@
                 <td><input type="checkbox" class="procure-check" data-idx="${idx}"></td>
                 <td><b>${item.product_name} /${item.unit || "个"}</b></td>
                 <td style="color:#6b7280">${item.current_stock}</td>
-                <td style="font-weight:700;">${item.total_needed}</td>
+                <td style="font-weight:700;">${item.total_needed > 0 ? item.total_needed + item.current_stock : item.total_needed}</td>
                 <td style="color:#9ca3af;">${item.to_buy}</td>
                 <td><input type="number" class="procure-input" id="actual-${idx}" value="${item.to_buy > 0 ? item.to_buy : 0}" style="font-weight:800;color:var(--primary);border-color:var(--primary);"></td>
                 <td><input type="number" class="procure-input" id="cost-${idx}" value="${item.default_cost > 0 ? item.default_cost : ""}" placeholder="0.00"></td>
@@ -2733,7 +2741,7 @@
             document.getElementById("inventory-list").innerHTML = list
               .map(
                 (p) =>
-                  `<tr><td><input type="checkbox" class="inv-check" value="${p.id}"></td><td style="padding:16px;">${p.id}</td><td><span style="background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:12px;">${p.category || "未分类"}</span></td><td>${p.barcode}</td><td><b>${p.name}</b></td><td>${p.unit || "个"}</td><td>${p.cost_price.toFixed(2)}</td><td><b>${p.price.toFixed(2)}</b></td><td><span class="${p.stock < 10 ? "stock-warning" : ""}">${p.stock}</span></td><td><span style="color:var(--primary)">¥${(p.price - p.cost_price).toFixed(2)}</span></td><td style="text-align:right;"><button class="btn" style="padding:4px 8px;background:#eff6ff;color:var(--primary);" onclick='openProductModal(${JSON.stringify(p)})'>编辑</button> <button class="btn" style="padding:4px 8px;background:#fef2f2;color:var(--danger);" onclick='delProd(${p.id})'>删除</button></td></tr>`,
+                  `<tr><td><input type="checkbox" class="inv-check" value="${p.id}"></td><td style="padding:16px;">${p.id}</td><td><span style="background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:12px;">${p.category || "未分类"}</span></td><td>${p.barcode}</td><td><b>${p.name}</b></td><td>${p.unit || "个"}</td><td>${p.cost_price.toFixed(2)}</td><td><b>${p.price.toFixed(2)}</b></td><td><span class="${p.stock < 10 ? "stock-warning" : ""}">${p.stock}</span>${(p.pre_ordered > 0) ? `<span style="color:#d97706;font-size:12px;font-weight:bold;margin-left:4px;">(已预订: ${p.pre_ordered})</span>` : ''}</td><td><span style="color:var(--primary)">¥${(p.price - p.cost_price).toFixed(2)}</span></td><td style="text-align:right;"><button class="btn" style="padding:4px 8px;background:#eff6ff;color:var(--primary);" onclick='openProductModal(${JSON.stringify(p)})'>编辑</button> <button class="btn" style="padding:4px 8px;background:#fef2f2;color:var(--danger);" onclick='delProd(${p.id})'>删除</button></td></tr>`,
               )
               .join("");
             document.getElementById("selectAllInv").checked = false; // reset select all on reload

@@ -315,13 +315,13 @@ type ProcurementItem struct {
 // GetProcurementList 获取待采购清单
 func (r *OrderRepo) GetProcurementList() ([]ProcurementItem, error) {
 	sqlStr := `
-		SELECT p.id, p.name, p.stock, SUM(oi.qty_ordered - oi.qty_picked) as demand
+		SELECT p.id, p.name, p.stock, SUM(oi.qty_ordered - oi.qty_picked) - p.stock as demand
 		FROM order_items oi
 		JOIN orders o ON oi.order_id = o.id
 		JOIN products p ON oi.product_id = p.id
 		WHERE o.status = 'Pending'
 		GROUP BY p.id
-		HAVING demand > 0
+		HAVING SUM(oi.qty_ordered - oi.qty_picked) > p.stock
 		ORDER BY demand DESC
 	`
 	rows, err := r.DB.Query(sqlStr)
