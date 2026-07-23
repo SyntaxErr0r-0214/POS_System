@@ -12,7 +12,7 @@ import (
 )
 
 // StoreName 店铺名称常量
-const StoreName = "万康生态食品团购超市"
+const StoreName = "POS System"
 
 type CheckoutService struct {
 	DB          *sql.DB
